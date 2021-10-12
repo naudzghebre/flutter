@@ -145,6 +145,10 @@ class ResidentWebRunner extends ResidentRunner {
   @override
   bool get supportsWriteSkSL => false;
 
+  @override
+  // Web uses a different plugin registry.
+  bool get generateDartPluginRegistry => false;
+
   bool get _enableDwds => debuggingEnabled;
 
   ConnectionResult _connectionResult;
@@ -256,7 +260,7 @@ class ResidentWebRunner extends ResidentRunner {
       return await asyncGuard(() async {
         final ExpressionCompiler expressionCompiler =
           debuggingOptions.webEnableExpressionEvaluation
-              ? WebExpressionCompiler(device.generator)
+              ? WebExpressionCompiler(device.generator, fileSystem: _fileSystem)
               : null;
         device.devFS = WebDevFS(
           hostname: debuggingOptions.hostname ?? 'localhost',
@@ -270,7 +274,7 @@ class ResidentWebRunner extends ResidentRunner {
           useSseForInjectedClient: debuggingOptions.webUseSseForInjectedClient,
           buildInfo: debuggingOptions.buildInfo,
           enableDwds: _enableDwds,
-          enableDds: !debuggingOptions.disableDds,
+          enableDds: debuggingOptions.enableDds,
           entrypoint: _fileSystem.file(target).uri,
           expressionCompiler: expressionCompiler,
           chromiumLauncher: _chromiumLauncher,
@@ -297,6 +301,7 @@ class ResidentWebRunner extends ResidentRunner {
             kNoneWorker,
             true,
             debuggingOptions.nativeNullAssertions,
+            null,
           );
         }
         await device.device.startApp(
@@ -313,17 +318,21 @@ class ResidentWebRunner extends ResidentRunner {
           enableDevTools: enableDevTools,
         );
       });
-    } on WebSocketException {
+    } on WebSocketException catch (error, stackTrace) {
       appFailedToStart();
+      _logger.printError('$error', stackTrace: stackTrace);
       throwToolExit(kExitMessage);
-    } on ChromeDebugException {
+    } on ChromeDebugException catch (error, stackTrace) {
       appFailedToStart();
+      _logger.printError('$error', stackTrace: stackTrace);
       throwToolExit(kExitMessage);
-    } on AppConnectionException {
+    } on AppConnectionException catch (error, stackTrace) {
       appFailedToStart();
+      _logger.printError('$error', stackTrace: stackTrace);
       throwToolExit(kExitMessage);
-    } on SocketException {
+    } on SocketException catch (error, stackTrace) {
       appFailedToStart();
+      _logger.printError('$error', stackTrace: stackTrace);
       throwToolExit(kExitMessage);
     } on Exception {
       appFailedToStart();
@@ -347,7 +356,7 @@ class ResidentWebRunner extends ResidentRunner {
     if (debuggingOptions.buildInfo.isDebug) {
       await runSourceGenerators();
       // Full restart is always false for web, since the extra recompile is wasteful.
-      final UpdateFSReport report = await _updateDevFS(fullRestart: false);
+      final UpdateFSReport report = await _updateDevFS();
       if (report.success) {
         device.generator.accept();
       } else {
@@ -365,6 +374,7 @@ class ResidentWebRunner extends ResidentRunner {
           kNoneWorker,
           true,
           debuggingOptions.nativeNullAssertions,
+          kBaseHref,
         );
       } on ToolExit {
         return OperationResult(1, 'Failed to recompile application.');
@@ -405,7 +415,7 @@ class ResidentWebRunner extends ResidentRunner {
         fullRestart: true,
         reason: reason,
         overallTimeInMs: elapsed.inMilliseconds,
-        fastReassemble: null,
+        fastReassemble: false,
       ).send();
     }
     return OperationResult.ok;
@@ -438,7 +448,7 @@ class ResidentWebRunner extends ResidentRunner {
         flutterDevices.first.generator.addFileSystemRoot(_fileSystem.directory('test').absolute.path);
         importedEntrypoint = Uri(
           scheme: 'org-dartlang-app',
-          path: '/' + mainUri.pathSegments.last,
+          path: '/${mainUri.pathSegments.last}',
         );
       }
       final LanguageVersion languageVersion =  determineLanguageVersion(
@@ -483,9 +493,12 @@ class ResidentWebRunner extends ResidentRunner {
     final bool rebuildBundle = assetBundle.needsBuild();
     if (rebuildBundle) {
       _logger.printTrace('Updating assets');
-      final int result = await assetBundle.build(packagesPath: debuggingOptions.buildInfo.packagesPath);
+      final int result = await assetBundle.build(
+        packagesPath: debuggingOptions.buildInfo.packagesPath,
+        targetPlatform: TargetPlatform.web_javascript,
+      );
       if (result != 0) {
-        return UpdateFSReport(success: false);
+        return UpdateFSReport();
       }
     }
     final InvalidationResult invalidationResult = await projectFileInvalidator.findInvalidated(
@@ -576,7 +589,7 @@ class ResidentWebRunner extends ResidentRunner {
           bool force,
           bool pause,
         }) async {
-          await restart(benchmarkMode: false, pause: pause, fullRestart: false);
+          await restart(pause: pause);
         },
         null,
         null,

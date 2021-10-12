@@ -78,7 +78,6 @@ class IntegrationTestTestDevice implements TestDevice {
     globals.printTrace('test $id: Finding the correct isolate with the integration test service extension');
     final vm_service.IsolateRef isolateRef = await vmService.findExtensionIsolate(
       kIntegrationTestMethod,
-      webIsolate: targetPlatform == TargetPlatform.web_javascript,
     );
 
     await vmService.service.streamListen(vm_service.EventStreams.kExtension);
@@ -98,7 +97,14 @@ class IntegrationTestTestDevice implements TestDevice {
       );
     });
 
-    unawaited(remoteMessages.pipe(controller.local.sink));
+    remoteMessages.listen(
+      (String s) => controller.local.sink.add(s),
+      onError: (Object error, StackTrace stack) => controller.local.sink.addError(error, stack),
+    );
+    unawaited(vmService.service.onDone.whenComplete(
+      () => controller.local.sink.close(),
+    ));
+
     return controller.foreign;
   }
 

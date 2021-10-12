@@ -75,6 +75,13 @@ class FlutterManifest {
   /// The string value of the top-level `name` property in the `pubspec.yaml` file.
   String get appName => _descriptor['name'] as String? ?? '';
 
+  /// Contains the name of the dependencies.
+  /// These are the keys specified in the `dependency` map.
+  Set<String> get dependencies {
+    final YamlMap? dependencies = _descriptor['dependencies'] as YamlMap?;
+    return dependencies != null ? <String>{...dependencies.keys.cast<String>()} : <String>{};
+  }
+
   // Flag to avoid printing multiple invalid version messages.
   bool _hasShowInvalidVersionMsg = false;
 
@@ -240,7 +247,7 @@ class FlutterManifest {
         DeferredComponent(
           name: component['name'] as String,
           libraries: component['libraries'] == null ?
-              <String>[] : component['libraries'].cast<String>() as List<String>,
+              <String>[] : (component['libraries'] as List<dynamic>).cast<String>(),
           assets: assetsUri,
         )
       );
@@ -488,22 +495,41 @@ void _validateFlutter(YamlMap? yaml, List<String> errors) {
         }
         break;
       case 'assets':
-        if (yamlValue is! YamlList || yamlValue[0] is! String) {
+        if (yamlValue is! YamlList) {
+
           errors.add('Expected "$yamlKey" to be a list, but got $yamlValue (${yamlValue.runtimeType}).');
+        } else if (yamlValue.isEmpty) {
+          break;
+        } else if (yamlValue[0] is! String) {
+          errors.add(
+            'Expected "$yamlKey" to be a list of strings, but the first element is $yamlValue (${yamlValue.runtimeType}).',
+          );
         }
         break;
       case 'fonts':
-        if (yamlValue is! YamlList || yamlValue[0] is! YamlMap) {
+        if (yamlValue is! YamlList) {
           errors.add('Expected "$yamlKey" to be a list, but got $yamlValue (${yamlValue.runtimeType}).');
+        } else if (yamlValue.isEmpty) {
+          break;
+        } else if (yamlValue.first is! YamlMap) {
+          errors.add(
+            'Expected "$yamlKey" to contain maps, but the first element is $yamlValue (${yamlValue.runtimeType}).',
+          );
         } else {
           _validateFonts(yamlValue, errors);
         }
         break;
       case 'licenses':
-        if (yamlValue is YamlList) {
-          _validateListType<String>(yamlValue, errors, '"$yamlKey"', 'files');
-        } else {
+        if (yamlValue is! YamlList) {
           errors.add('Expected "$yamlKey" to be a list of files, but got $yamlValue (${yamlValue.runtimeType})');
+        } else if (yamlValue.isEmpty) {
+          break;
+        } else if (yamlValue.first is! String) {
+          errors.add(
+            'Expected "$yamlKey" to contain strings, but the first element is $yamlValue (${yamlValue.runtimeType}).',
+          );
+        } else {
+          _validateListType<String>(yamlValue, errors, '"$yamlKey"', 'files');
         }
         break;
       case 'module':
@@ -545,6 +571,7 @@ void _validateFlutter(YamlMap? yaml, List<String> errors) {
 void _validateListType<T>(YamlList yamlList, List<String> errors, String context, String typeAlias) {
   for (int i = 0; i < yamlList.length; i++) {
     if (yamlList[i] is! T) {
+      // ignore: avoid_dynamic_calls
       errors.add('Expected $context to be a list of $typeAlias, but element $i was a ${yamlList[i].runtimeType}');
     }
   }
@@ -558,6 +585,7 @@ void _validateDeferredComponents(MapEntry<Object?, Object?> kvp, List<String> er
     for (int i = 0; i < yamlList.length; i++) {
       final Object? valueMap = yamlList[i];
       if (valueMap is! YamlMap) {
+        // ignore: avoid_dynamic_calls
         errors.add('Expected the $i element in "${kvp.key}" to be a map, but got ${yamlList[i]} (${yamlList[i].runtimeType}).');
         continue;
       }

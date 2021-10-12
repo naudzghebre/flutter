@@ -27,7 +27,9 @@ When a device in the lab is free, it will pickup tasks that need to be completed
 
 1. If the task succeeds, the test runner reports the success and uploads its performance metrics to Flutter's infrastructure. Not
 all tasks record performance metrics.
-2. If the task fails, the test runner reports the failure to Flutter's infrastructure and no performance metrics are collected
+2. If task fails, an auto rerun happens. Whenever the last run succeeds, the task will be reported as a success. For this case,
+a flake will be flagged and populated to the test result.
+3. If the task fails in all reruns, the test runner reports the failure to Flutter's infrastructure and no performance metrics are collected
 
 ## Running tests locally
 
@@ -206,7 +208,7 @@ _TASK_- the name of your test that also matches the name of the
 
 1. Add prod builder to [flutter/infra devicelab_config.star](https://github.com/flutter/infra/blob/master/config/devicelab_config.star)
   - Example PR: https://github.com/flutter/infra/pull/401/files
-  - This will need to soak for 15 minutes after merged to propagate (should show up in [LUCI console[(https://ci.chromium.org/p/flutter/g/devicelab/console))
+  - This will need to soak for 15 minutes after merged to propagate (should show up in [LUCI console](https://ci.chromium.org/p/flutter/g/devicelab/console))
   - There are various lists for the different testbeds a test can run on
 2. Add task to [flutter/flutter prod_builders.json](https://github.com/flutter/flutter/blob/master/dev/prod_builders.json)
   - Example PR: https://github.com/flutter/flutter/pull/79913/files

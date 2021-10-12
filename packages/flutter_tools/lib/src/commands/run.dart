@@ -16,7 +16,7 @@ import '../base/utils.dart';
 import '../build_info.dart';
 import '../device.dart';
 import '../features.dart';
-import '../globals.dart' as globals;
+import '../globals_null_migrated.dart' as globals;
 import '../project.dart';
 import '../reporting/reporting.dart';
 import '../resident_runner.dart';
@@ -36,6 +36,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
     usesFlavorOption();
     usesWebRendererOption();
     addNativeNullAssertions(hide: !verboseHelp);
+    addBundleSkSLPathOption(hide: !verboseHelp);
     argParser
       ..addFlag('trace-startup',
         negatable: false,
@@ -126,6 +127,12 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
               'this comma separated list of allowed prefixes.',
         valueHelp: 'foo,bar',
       )
+      ..addOption('trace-skia-allowlist',
+        hide: !verboseHelp,
+        help: 'Filters out all Skia trace events except those that are specified in '
+              'this comma separated list of allowed prefixes.',
+        valueHelp: 'skia.gpu,skia.shaders',
+      )
       ..addMultiOption('dart-entrypoint-args',
         abbr: 'a',
         help: 'Pass a list of arguments to the Dart entrypoint at application '
@@ -190,7 +197,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         buildInfo,
         startPaused: boolArg('start-paused'),
         disableServiceAuthCodes: boolArg('disable-service-auth-codes'),
-        disableDds: boolArg('disable-dds'),
+        enableDds: enableDds,
         dartEntrypointArgs: stringsArg('dart-entrypoint-args'),
         dartFlags: stringArg('dart-flags') ?? '',
         useTestFonts: argParser.options.containsKey('use-test-fonts') && boolArg('use-test-fonts'),
@@ -198,6 +205,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
         skiaDeterministicRendering: argParser.options.containsKey('skia-deterministic-rendering') && boolArg('skia-deterministic-rendering'),
         traceSkia: boolArg('trace-skia'),
         traceAllowlist: traceAllowlist,
+        traceSkiaAllowlist: stringArg('trace-skia-allowlist'),
         traceSystrace: boolArg('trace-systrace'),
         endlessTraceBuffer: boolArg('endless-trace-buffer'),
         dumpSkpOnShaderCompilation: dumpSkpOnShaderCompilation,
@@ -235,11 +243,12 @@ class RunCommand extends RunCommandBase {
     usesFilesystemOptions(hide: !verboseHelp);
     usesExtraDartFlagOptions(verboseHelp: verboseHelp);
     addEnableExperimentation(hide: !verboseHelp);
+    usesInitializeFromDillOption(hide: !verboseHelp);
 
     // By default, the app should to publish the VM service port over mDNS.
     // This will allow subsequent "flutter attach" commands to connect to the VM
     // without needing to know the port.
-    addPublishPort(enabledByDefault: true, verboseHelp: verboseHelp);
+    addPublishPort(verboseHelp: verboseHelp);
     argParser
       ..addFlag('enable-software-rendering',
         negatable: false,
@@ -260,7 +269,7 @@ class RunCommand extends RunCommandBase {
               'or just dump the trace as soon as the application is running. The first frame '
               'is detected by looking for a Timeline event with the name '
               '"${Tracing.firstUsefulFrameEventName}". '
-              'By default, the widgets library\'s binding takes care of sending this event.',
+              "By default, the widgets library's binding takes care of sending this event.",
       )
       ..addFlag('use-test-fonts',
         negatable: true,
@@ -315,7 +324,7 @@ class RunCommand extends RunCommandBase {
               'results out to "refresh_benchmark.json", and exit. This flag is '
               'intended for use in generating automated flutter benchmarks.',
       )
-      // TODO(jonahwilliams): Off by default with investigating whether this
+      // TODO(zanderso): Off by default with investigating whether this
       // is slower for certain use cases.
       // See: https://github.com/flutter/flutter/issues/49499
       ..addFlag('fast-start',
@@ -333,6 +342,9 @@ class RunCommand extends RunCommandBase {
 
   @override
   final String description = 'Run your Flutter app on an attached device.';
+
+  @override
+  String get category => FlutterCommandCategory.project;
 
   List<Device> devices;
   bool webMode = false;
@@ -356,7 +368,7 @@ class RunCommand extends RunCommandBase {
   }
 
   @override
-  Future<Map<CustomDimensions, String>> get usageValues async {
+  Future<CustomDimensions> get usageValues async {
     String deviceType, deviceOsVersion;
     bool isEmulator;
     bool anyAndroidDevices = false;
@@ -409,16 +421,15 @@ class RunCommand extends RunCommandBase {
 
     final BuildInfo buildInfo = await getBuildInfo();
     final String modeName = buildInfo.modeName;
-    return <CustomDimensions, String>{
-      CustomDimensions.commandRunIsEmulator: '$isEmulator',
-      CustomDimensions.commandRunTargetName: deviceType,
-      CustomDimensions.commandRunTargetOsVersion: deviceOsVersion,
-      CustomDimensions.commandRunModeName: modeName,
-      CustomDimensions.commandRunProjectModule: '${FlutterProject.current().isModule}',
-      CustomDimensions.commandRunProjectHostLanguage: hostLanguage.join(','),
-      if (androidEmbeddingVersion != null)
-        CustomDimensions.commandRunAndroidEmbeddingVersion: androidEmbeddingVersion,
-    };
+    return CustomDimensions(
+      commandRunIsEmulator: isEmulator,
+      commandRunTargetName: deviceType,
+      commandRunTargetOsVersion: deviceOsVersion,
+      commandRunModeName: modeName,
+      commandRunProjectModule: FlutterProject.current().isModule,
+      commandRunProjectHostLanguage: hostLanguage.join(','),
+      commandRunAndroidEmbeddingVersion: androidEmbeddingVersion,
+    );
   }
 
   @override
@@ -552,7 +563,6 @@ class RunCommand extends RunCommandBase {
           packagesFilePath: globalResults['packages'] as String,
           dillOutputPath: stringArg('output-dill'),
           ipv6: ipv6,
-          machine: true,
         );
       } on Exception catch (error) {
         throwToolExit(error.toString());
@@ -585,7 +595,7 @@ class RunCommand extends RunCommandBase {
       }
       if (await device.isLocalEmulator && await device.supportsHardwareRendering) {
         if (boolArg('enable-software-rendering')) {
-           globals.printStatus(
+          globals.printStatus(
             'Using software rendering with device ${device.name}. You may get better performance '
             'with hardware mode by configuring hardware rendering for your device.'
            );
@@ -608,8 +618,6 @@ class RunCommand extends RunCommandBase {
       for (final Device device in devices)
         await FlutterDevice.create(
           device,
-          fileSystemRoots: stringsArg(FlutterOptions.kFileSystemRoot),
-          fileSystemScheme: stringArg(FlutterOptions.kFileSystemScheme),
           experimentalFlags: expFlags,
           target: targetFile,
           buildInfo: buildInfo,

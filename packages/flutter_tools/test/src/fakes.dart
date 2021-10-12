@@ -15,6 +15,7 @@ import 'package:flutter_tools/src/convert.dart';
 import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/ios/plist_parser.dart';
 import 'package:flutter_tools/src/version.dart';
+import 'package:test/fake.dart';
 
 /// Environment with DYLD_LIBRARY_PATH=/path/to/libraries
 class FakeDyldEnvironmentArtifact extends ArtifactSet {
@@ -414,7 +415,6 @@ class TestFeatureFlags implements FeatureFlags {
     this.isIOSEnabled = true,
     this.isFuchsiaEnabled = false,
     this.areCustomDevicesEnabled = false,
-    this.isExperimentalInvalidationStrategyEnabled = false,
     this.isWindowsUwpEnabled = false,
   });
 
@@ -446,9 +446,6 @@ class TestFeatureFlags implements FeatureFlags {
   final bool areCustomDevicesEnabled;
 
   @override
-  final bool isExperimentalInvalidationStrategyEnabled;
-
-  @override
   final bool isWindowsUwpEnabled;
 
   @override
@@ -472,8 +469,6 @@ class TestFeatureFlags implements FeatureFlags {
         return isFuchsiaEnabled;
       case flutterCustomDevicesFeature:
         return areCustomDevicesEnabled;
-      case experimentalInvalidationStrategy:
-        return isExperimentalInvalidationStrategyEnabled;
       case windowsUwpEmbedding:
         return isWindowsUwpEnabled;
     }
@@ -492,4 +487,98 @@ class FakeStatusLogger extends DelegatingLogger {
     bool multilineOutput = false,
     int progressIndicatorPadding = kDefaultStatusPadding,
   }) => status;
+}
+
+class FakeOperatingSystemUtils extends Fake implements OperatingSystemUtils {
+  FakeOperatingSystemUtils({this.hostPlatform = HostPlatform.linux_x64});
+
+  final List<List<String>> chmods = <List<String>>[];
+
+  @override
+  void makeExecutable(File file) { }
+
+  @override
+  HostPlatform hostPlatform = HostPlatform.linux_x64;
+
+  @override
+  void chmod(FileSystemEntity entity, String mode) {
+    chmods.add(<String>[entity.path, mode]);
+  }
+
+  @override
+  File? which(String execName) => null;
+
+  @override
+  List<File> whichAll(String execName) => <File>[];
+
+  @override
+  void unzip(File file, Directory targetDirectory) { }
+
+  @override
+  void unpack(File gzippedTarFile, Directory targetDirectory) { }
+
+  @override
+  Stream<List<int>> gzipLevel1Stream(Stream<List<int>> stream) => stream;
+
+  @override
+  String get name => 'fake OS name and version';
+
+  @override
+  String get pathVarSeparator => ';';
+
+  @override
+  Future<int> findFreePort({bool ipv6 = false}) async => 12345;
+}
+
+class FakeStopwatch implements Stopwatch {
+  @override
+  bool get isRunning => _isRunning;
+  bool _isRunning = false;
+
+  @override
+  void start() => _isRunning = true;
+
+  @override
+  void stop() => _isRunning = false;
+
+  @override
+  Duration elapsed = Duration.zero;
+
+  @override
+  int get elapsedMicroseconds => elapsed.inMicroseconds;
+
+  @override
+  int get elapsedMilliseconds => elapsed.inMilliseconds;
+
+  @override
+  int get elapsedTicks => elapsed.inMilliseconds;
+
+  @override
+  int get frequency => 1000;
+
+  @override
+  void reset() {
+    _isRunning = false;
+    elapsed = Duration.zero;
+  }
+
+  @override
+  String toString() => '$runtimeType $elapsed $isRunning';
+}
+
+class FakeStopwatchFactory implements StopwatchFactory {
+  FakeStopwatchFactory({
+    Stopwatch? stopwatch,
+    Map<String, Stopwatch>? stopwatches
+  }) : stopwatches = <String, Stopwatch>{
+         if (stopwatches != null) ...stopwatches,
+         if (stopwatch != null) '': stopwatch,
+       };
+
+  Map<String, Stopwatch> stopwatches;
+
+  @override
+  Stopwatch createStopwatch([String name = '']) {
+    return stopwatches[name] ?? FakeStopwatch();
+  }
 }

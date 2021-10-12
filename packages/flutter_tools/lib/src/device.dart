@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -25,7 +23,7 @@ import 'device_port_forwarder.dart';
 import 'project.dart';
 import 'vmservice.dart';
 
-DeviceManager get deviceManager => context.get<DeviceManager>();
+DeviceManager? get deviceManager => context.get<DeviceManager>();
 
 /// A description of the kind of workflow the device supports.
 class Category {
@@ -63,9 +61,9 @@ class PlatformType {
 /// A discovery mechanism for flutter-supported development devices.
 abstract class DeviceManager {
   DeviceManager({
-    @required Logger logger,
-    @required Terminal terminal,
-    @required UserMessages userMessages,
+    required Logger logger,
+    required Terminal terminal,
+    required UserMessages userMessages,
   }) : _logger = logger,
        _terminal = terminal,
        _userMessages = userMessages;
@@ -78,17 +76,17 @@ abstract class DeviceManager {
   /// of their methods are called.
   List<DeviceDiscovery> get deviceDiscoverers;
 
-  String _specifiedDeviceId;
+  String? _specifiedDeviceId;
 
   /// A user-specified device ID.
-  String get specifiedDeviceId {
+  String? get specifiedDeviceId {
     if (_specifiedDeviceId == null || _specifiedDeviceId == 'all') {
       return null;
     }
     return _specifiedDeviceId;
   }
 
-  set specifiedDeviceId(String id) {
+  set specifiedDeviceId(String? id) {
     _specifiedDeviceId = id;
   }
 
@@ -110,35 +108,42 @@ abstract class DeviceManager {
 
     // Some discoverers have hard-coded device IDs and return quickly, and others
     // shell out to other processes and can take longer.
+    // If an ID was specified, first check if it was a "well-known" device id.
+    final Set<String> wellKnownIds = _platformDiscoverers
+      .expand((DeviceDiscovery discovery) => discovery.wellKnownIds)
+      .toSet();
+    final bool hasWellKnownId = hasSpecifiedDeviceId && wellKnownIds.contains(specifiedDeviceId);
+
     // Process discoverers as they can return results, so if an exact match is
     // found quickly, we don't wait for all the discoverers to complete.
     final List<Device> prefixMatches = <Device>[];
     final Completer<Device> exactMatchCompleter = Completer<Device>();
-    final List<Future<List<Device>>> futureDevices = <Future<List<Device>>>[
+    final List<Future<List<Device>?>> futureDevices = <Future<List<Device>?>>[
       for (final DeviceDiscovery discoverer in _platformDiscoverers)
-        discoverer
-        .devices
-        .then((List<Device> devices) {
-          for (final Device device in devices) {
-            if (exactlyMatchesDeviceId(device)) {
-              exactMatchCompleter.complete(device);
-              return null;
+        if (!hasWellKnownId || discoverer.wellKnownIds.contains(specifiedDeviceId))
+          discoverer
+          .devices
+          .then((List<Device> devices) {
+            for (final Device device in devices) {
+              if (exactlyMatchesDeviceId(device)) {
+                exactMatchCompleter.complete(device);
+                return null;
+              }
+              if (startsWithDeviceId(device)) {
+                prefixMatches.add(device);
+              }
             }
-            if (startsWithDeviceId(device)) {
-              prefixMatches.add(device);
-            }
-          }
-          return null;
-        }, onError: (dynamic error, StackTrace stackTrace) {
-          // Return matches from other discoverers even if one fails.
-          _logger.printTrace('Ignored error discovering $deviceId: $error');
-        })
+            return null;
+          }, onError: (dynamic error, StackTrace stackTrace) {
+            // Return matches from other discoverers even if one fails.
+            _logger.printTrace('Ignored error discovering $deviceId: $error');
+          })
     ];
 
     // Wait for an exact match, or for all discoverers to return results.
-    await Future.any<dynamic>(<Future<dynamic>>[
+    await Future.any<Object>(<Future<Object>>[
       exactMatchCompleter.future,
-      Future.wait<List<Device>>(futureDevices),
+      Future.wait<List<Device>?>(futureDevices),
     ]);
 
     if (exactMatchCompleter.isCompleted) {
@@ -149,9 +154,11 @@ abstract class DeviceManager {
 
   /// Returns the list of connected devices, filtered by any user-specified device id.
   Future<List<Device>> getDevices() {
-    return hasSpecifiedDeviceId
-        ? getDevicesById(specifiedDeviceId)
-        : getAllConnectedDevices();
+    final String? id = specifiedDeviceId;
+    if (id == null) {
+      return getAllConnectedDevices();
+    }
+    return getDevicesById(id);
   }
 
   Iterable<DeviceDiscovery> get _platformDiscoverers {
@@ -169,7 +176,7 @@ abstract class DeviceManager {
   }
 
   /// Returns the list of all connected devices. Discards existing cache of devices.
-  Future<List<Device>> refreshAllConnectedDevices({ Duration timeout }) async {
+  Future<List<Device>> refreshAllConnectedDevices({ Duration? timeout }) async {
     final List<List<Device>> devices = await Future.wait<List<Device>>(<Future<List<Device>>>[
       for (final DeviceDiscovery discoverer in _platformDiscoverers)
         discoverer.discoverDevices(timeout: timeout),
@@ -207,7 +214,7 @@ abstract class DeviceManager {
   ///
   /// * If [flutterProject] is null, then assume the project supports all
   /// device types.
-  Future<List<Device>> findTargetDevices(FlutterProject flutterProject, { Duration timeout }) async {
+  Future<List<Device>> findTargetDevices(FlutterProject flutterProject, { Duration? timeout }) async {
     if (timeout != null) {
       // Reset the cache with the specified timeout.
       await refreshAllConnectedDevices(timeout: timeout);
@@ -259,7 +266,7 @@ abstract class DeviceManager {
             .where((Device device) => device.ephemeral == true)
             .toList();
 
-            if (ephemeralDevices.length == 1){
+            if (ephemeralDevices.length == 1) {
               devices = ephemeralDevices;
             }
       }
@@ -331,11 +338,20 @@ abstract class DeviceDiscovery {
   Future<List<Device>> get devices;
 
   /// Return all connected devices. Discards existing cache of devices.
-  Future<List<Device>> discoverDevices({ Duration timeout });
+  Future<List<Device>> discoverDevices({ Duration? timeout });
 
   /// Gets a list of diagnostic messages pertaining to issues with any connected
   /// devices (will be an empty list if there are no issues).
   Future<List<String>> getDiagnostics() => Future<List<String>>.value(<String>[]);
+
+  /// Hard-coded device IDs that the discoverer can produce.
+  ///
+  /// These values are used by the device discovery to determine if it can
+  /// short-circuit the other detectors if a specific ID is provided. If a
+  /// discoverer has no valid fixed IDs, these should be left empty.
+  ///
+  /// For example, 'windows' or 'linux'.
+  List<String> get wellKnownIds;
 }
 
 /// A [DeviceDiscovery] implementation that uses polling to discover device adds
@@ -350,11 +366,11 @@ abstract class PollingDeviceDiscovery extends DeviceDiscovery {
 
   @protected
   @visibleForTesting
-  ItemListNotifier<Device> deviceNotifier;
+  ItemListNotifier<Device>? deviceNotifier;
 
-  Timer _timer;
+  Timer? _timer;
 
-  Future<List<Device>> pollingGetDevices({ Duration timeout });
+  Future<List<Device>> pollingGetDevices({ Duration? timeout });
 
   void startPolling() {
     if (_timer == null) {
@@ -364,11 +380,11 @@ abstract class PollingDeviceDiscovery extends DeviceDiscovery {
     }
   }
 
-  Timer _initTimer(Duration pollingTimeout) {
+  Timer _initTimer(Duration? pollingTimeout) {
     return Timer(_pollingInterval, () async {
       try {
         final List<Device> devices = await pollingGetDevices(timeout: pollingTimeout);
-        deviceNotifier.updateWithNewList(devices);
+        deviceNotifier!.updateWithNewList(devices);
       } on TimeoutException {
         // Do nothing on a timeout.
       }
@@ -388,24 +404,24 @@ abstract class PollingDeviceDiscovery extends DeviceDiscovery {
   }
 
   @override
-  Future<List<Device>> discoverDevices({ Duration timeout }) {
+  Future<List<Device>> discoverDevices({ Duration? timeout }) {
     deviceNotifier = null;
     return _populateDevices(timeout: timeout);
   }
 
-  Future<List<Device>> _populateDevices({ Duration timeout }) async {
+  Future<List<Device>> _populateDevices({ Duration? timeout }) async {
     deviceNotifier ??= ItemListNotifier<Device>.from(await pollingGetDevices(timeout: timeout));
-    return deviceNotifier.items;
+    return deviceNotifier!.items;
   }
 
   Stream<Device> get onAdded {
     deviceNotifier ??= ItemListNotifier<Device>();
-    return deviceNotifier.onAdded;
+    return deviceNotifier!.onAdded;
   }
 
   Stream<Device> get onRemoved {
     deviceNotifier ??= ItemListNotifier<Device>();
-    return deviceNotifier.onRemoved;
+    return deviceNotifier!.onRemoved;
   }
 
   void dispose() => stopPolling();
@@ -420,9 +436,9 @@ abstract class PollingDeviceDiscovery extends DeviceDiscovery {
 /// the host operating system in the case of Flutter Desktop.
 abstract class Device {
   Device(this.id, {
-    @required this.category,
-    @required this.platformType,
-    @required this.ephemeral,
+    required this.category,
+    required this.platformType,
+    required this.ephemeral,
   });
 
   final String id;
@@ -518,7 +534,7 @@ abstract class Device {
   ///
   /// For example, the desktop device classes can use a writer which
   /// copies the files across the local file system.
-  DevFSWriter createDevFSWriter(
+  DevFSWriter? createDevFSWriter(
     covariant ApplicationPackage app,
     String userIdentifier,
   ) {
@@ -548,7 +564,7 @@ abstract class Device {
   void clearLogs();
 
   /// Optional device-specific artifact overrides.
-  OverrideArtifacts get artifactOverrides => null;
+  OverrideArtifacts? get artifactOverrides => null;
 
   /// Start an app package on the current device.
   ///
@@ -559,7 +575,7 @@ abstract class Device {
     String mainPath,
     String route,
     DebuggingOptions debuggingOptions,
-    Map<String, dynamic> platformArgs,
+    Map<String, Object?> platformArgs,
     bool prebuiltApplication = false,
     bool ipv6 = false,
     String userIdentifier,
@@ -650,7 +666,7 @@ abstract class Device {
 
     // Join columns into lines of text
     for (final List<String> row in table) {
-      yield indices.map<String>((int i) => row[i].padRight(widths[i])).join(' • ') + ' • ${row.last}';
+      yield indices.map<String>((int i) => row[i].padRight(widths[i])).followedBy(<String>[row.last]).join(' • ');
     }
   }
 
@@ -717,13 +733,14 @@ class DebuggingOptions {
     this.buildInfo, {
     this.startPaused = false,
     this.disableServiceAuthCodes = false,
-    this.disableDds = false,
+    this.enableDds = true,
     this.dartEntrypointArgs = const <String>[],
     this.dartFlags = '',
     this.enableSoftwareRendering = false,
     this.skiaDeterministicRendering = false,
     this.traceSkia = false,
     this.traceAllowlist,
+    this.traceSkiaAllowlist,
     this.traceSystrace = false,
     this.endlessTraceBuffer = false,
     this.dumpSkpOnShaderCompilation = false,
@@ -768,10 +785,11 @@ class DebuggingOptions {
       startPaused = false,
       dartFlags = '',
       disableServiceAuthCodes = false,
-      disableDds = false,
+      enableDds = true,
       enableSoftwareRendering = false,
       skiaDeterministicRendering = false,
       traceSkia = false,
+      traceSkiaAllowlist = null,
       traceSystrace = false,
       endlessTraceBuffer = false,
       dumpSkpOnShaderCompilation = false,
@@ -795,11 +813,12 @@ class DebuggingOptions {
   final String dartFlags;
   final List<String> dartEntrypointArgs;
   final bool disableServiceAuthCodes;
-  final bool disableDds;
+  final bool enableDds;
   final bool enableSoftwareRendering;
   final bool skiaDeterministicRendering;
   final bool traceSkia;
-  final String traceAllowlist;
+  final String? traceAllowlist;
+  final String? traceSkiaAllowlist;
   final bool traceSystrace;
   final bool endlessTraceBuffer;
   final bool dumpSkpOnShaderCompilation;
@@ -807,14 +826,14 @@ class DebuggingOptions {
   final bool purgePersistentCache;
   final bool useTestFonts;
   final bool verboseSystemLogs;
-  final int hostVmServicePort;
-  final int deviceVmServicePort;
+  final int? hostVmServicePort;
+  final int? deviceVmServicePort;
   final bool disablePortPublication;
-  final int ddsPort;
-  final Uri devToolsServerAddress;
-  final String port;
-  final String hostname;
-  final bool webEnableExposeUrl;
+  final int? ddsPort;
+  final Uri? devToolsServerAddress;
+  final String? port;
+  final String? hostname;
+  final bool? webEnableExposeUrl;
   final bool webUseSseForDebugProxy;
   final bool webUseSseForDebugBackend;
   final bool webUseSseForInjectedClient;
@@ -827,13 +846,13 @@ class DebuggingOptions {
   final bool webRunHeadless;
 
   /// The port the browser should use for its debugging protocol.
-  final int webBrowserDebugPort;
+  final int? webBrowserDebugPort;
 
   /// Enable expression evaluation for web target.
   final bool webEnableExpressionEvaluation;
 
   /// A file where the VM Service URL should be written after the application is started.
-  final String vmserviceOutFile;
+  final String? vmserviceOutFile;
   final bool fastStart;
 
   final bool nullAssertions;
@@ -841,7 +860,7 @@ class DebuggingOptions {
   /// Additional null runtime checks inserted for web applications.
   ///
   /// See also:
-  ///   * https://github.com/dart-lang/sdk/blob/master/sdk/lib/html/doc/NATIVE_NULL_ASSERTIONS.md
+  ///   * https://github.com/dart-lang/sdk/blob/main/sdk/lib/html/doc/NATIVE_NULL_ASSERTIONS.md
   final bool nativeNullAssertions;
 
   bool get hasObservatoryPort => hostVmServicePort != null;
@@ -856,7 +875,7 @@ class LaunchResult {
   bool get hasObservatory => observatoryUri != null;
 
   final bool started;
-  final Uri observatoryUri;
+  final Uri? observatoryUri;
 
   @override
   String toString() {
@@ -877,13 +896,13 @@ abstract class DeviceLogReader {
 
   /// Some logs can be obtained from a VM service stream.
   /// Set this after the VM services are connected.
-  FlutterVmService connectedVMService;
+  FlutterVmService? connectedVMService;
 
   @override
   String toString() => name;
 
   /// Process ID of the app on the device.
-  int appPid;
+  int? appPid;
 
   // Clean up resources allocated by log reader e.g. subprocesses
   void dispose();
@@ -904,10 +923,10 @@ class NoOpDeviceLogReader implements DeviceLogReader {
   final String name;
 
   @override
-  int appPid;
+  int? appPid;
 
   @override
-  FlutterVmService connectedVMService;
+  FlutterVmService? connectedVMService;
 
   @override
   Stream<String> get logLines => const Stream<String>.empty();
@@ -920,7 +939,7 @@ class NoOpDeviceLogReader implements DeviceLogReader {
 /// [debuggingOptions.nullAssertions] is true.
 String computeDartVmFlags(DebuggingOptions debuggingOptions) {
   return <String>[
-    if (debuggingOptions.dartFlags?.isNotEmpty ?? false)
+    if (debuggingOptions.dartFlags.isNotEmpty)
       debuggingOptions.dartFlags,
     if (debuggingOptions.nullAssertions)
       '--null_assertions',

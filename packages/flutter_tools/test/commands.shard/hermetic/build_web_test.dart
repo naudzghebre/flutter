@@ -13,10 +13,8 @@ import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/commands/build.dart';
 import 'package:flutter_tools/src/commands/build_web.dart';
-import 'package:flutter_tools/src/runner/flutter_command.dart';
 import 'package:flutter_tools/src/features.dart';
-import 'package:flutter_tools/src/project.dart';
-import 'package:flutter_tools/src/web/compile.dart';
+import 'package:flutter_tools/src/runner/flutter_command.dart';
 
 import '../../src/common.dart';
 import '../../src/context.dart';
@@ -27,7 +25,6 @@ import '../../src/test_flutter_command_runner.dart';
 void main() {
   FileSystem fileSystem;
   final Platform fakePlatform = FakePlatform(
-    operatingSystem: 'linux',
     environment: <String, String>{
       'FLUTTER_ROOT': '/'
     }
@@ -50,17 +47,12 @@ void main() {
 
   testUsingContext('Refuses to build for web when missing index.html', () async {
     fileSystem.file(fileSystem.path.join('web', 'index.html')).deleteSync();
-    final FlutterProject project = FlutterProject.fromDirectoryTest(fileSystem.currentDirectory);
+    final CommandRunner<void> runner = createTestCommandRunner(BuildCommand());
 
-    expect(buildWeb(
-      project,
-      fileSystem.path.join('lib', 'main.dart'),
-      BuildInfo.debug,
-      false,
-      null,
-      true,
-      true,
-    ), throwsToolExit());
+    expect(
+      () => runner.run(<String>['build', 'web', '--no-pub']),
+      throwsToolExit(message: 'Missing index.html.')
+    );
   }, overrides: <Type, Generator>{
     Platform: () => fakePlatform,
     FileSystem: () => fileSystem,
@@ -90,7 +82,7 @@ void main() {
   }, overrides: <Type, Generator>{
     Platform: () => fakePlatform,
     FileSystem: () => fileSystem,
-    FeatureFlags: () => TestFeatureFlags(isWebEnabled: false),
+    FeatureFlags: () => TestFeatureFlags(),
     ProcessManager: () => FakeProcessManager.any(),
   });
 
@@ -98,7 +90,7 @@ void main() {
     final BuildCommand buildCommand = BuildCommand();
     final CommandRunner<void> runner = createTestCommandRunner(buildCommand);
     setupFileSystemForEndToEndTest(fileSystem);
-    await runner.run(<String>['build', 'web', '--no-pub']);
+    await runner.run(<String>['build', 'web', '--no-pub', '--dart-define=foo=a']);
 
     expect(fileSystem.file(fileSystem.path.join('lib', 'generated_plugin_registrant.dart')).existsSync(), true);
   }, overrides: <Type, Generator>{
@@ -106,7 +98,22 @@ void main() {
     FileSystem: () => fileSystem,
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: true),
     ProcessManager: () => FakeProcessManager.any(),
-    BuildSystem: () => TestBuildSystem.all(BuildResult(success: true)),
+    BuildSystem: () => TestBuildSystem.all(BuildResult(success: true), (Target target, Environment environment) {
+      expect(environment.defines, <String, String>{
+        'TargetFile': 'lib/main.dart',
+        'HasWebPlugins': 'true',
+        'cspMode': 'false',
+        'SourceMaps': 'false',
+        'NativeNullAssertions': 'true',
+        'ServiceWorkerStrategy': 'offline-first',
+        'BuildMode': 'release',
+        'DartDefines': 'Zm9vPWE=,RkxVVFRFUl9XRUJfQVVUT19ERVRFQ1Q9dHJ1ZQ==',
+        'DartObfuscation': 'false',
+        'TrackWidgetCreation': 'false',
+        'TreeShakeIcons': 'false',
+        'baseHref': null,
+      });
+    }),
   });
 
   testUsingContext('hidden if feature flag is not enabled', () async {
@@ -114,7 +121,7 @@ void main() {
   }, overrides: <Type, Generator>{
     Platform: () => fakePlatform,
     FileSystem: () => fileSystem,
-    FeatureFlags: () => TestFeatureFlags(isWebEnabled: false),
+    FeatureFlags: () => TestFeatureFlags(),
     ProcessManager: () => FakeProcessManager.any(),
   });
 

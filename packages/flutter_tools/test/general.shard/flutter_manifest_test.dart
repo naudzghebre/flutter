@@ -630,8 +630,8 @@ flutter:
     expect(flutterManifest, matchesManifest(
       appVersion: '1.0.0+2',
       buildName: '1.0.0',
-      buildNumber: '2'),
-    );
+      buildNumber: '2',
+    ));
   });
 
   testWithoutContext('FlutterManifest parses major.minor.patch with no build version', () {
@@ -652,8 +652,7 @@ flutter:
     expect(flutterManifest, matchesManifest(
       appVersion:  '0.0.1',
       buildName: '0.0.1',
-      buildNumber: null),
-    );
+    ));
   });
 
   testWithoutContext('FlutterManifest parses major.minor.patch+build version clause 2', () {
@@ -674,8 +673,8 @@ flutter:
     expect(flutterManifest, matchesManifest(
       appVersion: '1.0.0-beta+exp.sha.5114f85',
       buildName: '1.0.0-beta',
-      buildNumber: 'exp.sha.5114f85'),
-    );
+      buildNumber: 'exp.sha.5114f85',
+    ));
   });
 
   testWithoutContext('FlutterManifest parses major.minor+build version clause', () {
@@ -696,8 +695,8 @@ flutter:
     expect(flutterManifest, matchesManifest(
       appVersion: '1.0+2',
       buildName: '1.0',
-      buildNumber: '2'),
-    );
+      buildNumber: '2',
+    ));
   });
 
   testWithoutContext('FlutterManifest parses empty version clause', () {
@@ -715,11 +714,7 @@ flutter:
       logger: logger,
     );
 
-    expect(flutterManifest, matchesManifest(
-      appVersion: null,
-      buildName: null,
-      buildNumber: null),
-    );
+    expect(flutterManifest, matchesManifest());
   });
 
   testWithoutContext('FlutterManifest parses no version clause', () {
@@ -736,11 +731,7 @@ flutter:
       logger: logger,
     );
 
-    expect(flutterManifest, matchesManifest(
-      appVersion: null,
-      buildName: null,
-      buildNumber: null),
-    );
+    expect(flutterManifest, matchesManifest());
   });
 
     // Regression test for https://github.com/flutter/flutter/issues/31764
@@ -765,6 +756,44 @@ flutter:
     expect(flutterManifest, null);
     expect(logger.errorText,
       contains('Expected "fonts" to either be null or a list.'));
+  });
+
+  testWithoutContext('FlutterManifest ignores empty list of fonts', () {
+    const String manifest = '''
+name: test
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  fonts: []
+''';
+    final BufferLogger logger = BufferLogger.test();
+    final FlutterManifest? flutterManifest = FlutterManifest.createFromString(
+      manifest,
+      logger: logger,
+    );
+
+    expect(flutterManifest, isNotNull);
+    expect(flutterManifest!.fonts.length, 0);
+  });
+
+  testWithoutContext('FlutterManifest ignores empty list of assets', () {
+    const String manifest = '''
+name: test
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  assets: []
+''';
+    final BufferLogger logger = BufferLogger.test();
+    final FlutterManifest? flutterManifest = FlutterManifest.createFromString(
+      manifest,
+      logger: logger,
+    );
+
+    expect(flutterManifest, isNotNull);
+    expect(flutterManifest!.assets.length, 0);
   });
 
   testWithoutContext('FlutterManifest returns proper error when font detail is '
@@ -1084,6 +1113,25 @@ flutter:
     expect(flutterManifest, null);
     expect(logger.errorText,
       contains('Cannot find the `flutter.plugin.platforms` key in the `pubspec.yaml` file. '));
+  });
+
+  testWithoutContext('FlutterManifest handles empty licenses list', () async {
+    const String manifest = '''
+name: test
+dependencies:
+  flutter:
+    sdk: flutter
+flutter:
+  licenses: []
+''';
+    final BufferLogger logger = BufferLogger.test();
+    final FlutterManifest? flutterManifest = FlutterManifest.createFromString(
+      manifest,
+      logger: logger,
+    );
+
+    expect(flutterManifest, isNotNull);
+    expect(flutterManifest!.additionalLicenses.length, 0);
   });
 
   testWithoutContext('FlutterManifest can specify additional LICENSE files', () async {
@@ -1443,6 +1491,19 @@ flutter:
     expect(deferredComponents[0].assets[0].path, 'path/to/asset1.jpg');
     expect(deferredComponents[0].assets[1].path, 'path/to/asset2.jpg');
     expect(deferredComponents[0].assets[2].path, 'path/to/asset3.jpg');
+  });
+
+  testWithoutContext('FlutterManifest can parse empty dependencies', () async {
+    const String manifest = '''
+name: test
+''';
+    final FlutterManifest? flutterManifest = FlutterManifest.createFromString(
+      manifest,
+      logger: BufferLogger.test(),
+    );
+
+    expect(flutterManifest, isNotNull);
+    expect(flutterManifest!.dependencies, isEmpty);
   });
 }
 

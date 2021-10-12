@@ -67,52 +67,11 @@ export 'package:flutter/services.dart' show SmartQuotesType, SmartDashesType;
 /// ```
 /// {@end-tool}
 ///
-/// {@tool dartpad --template=stateful_widget_material}
+/// {@tool dartpad}
 /// This example shows how to move the focus to the next field when the user
 /// presses the SPACE key.
 ///
-/// ```dart imports
-/// import 'package:flutter/services.dart';
-/// ```
-///
-/// ```dart
-/// @override
-/// Widget build(BuildContext context) {
-///   return Material(
-///     child: Center(
-///       child: Shortcuts(
-///         shortcuts: <LogicalKeySet, Intent>{
-///           // Pressing space in the field will now move to the next field.
-///           LogicalKeySet(LogicalKeyboardKey.space): const NextFocusIntent(),
-///         },
-///         child: FocusTraversalGroup(
-///           child: Form(
-///             autovalidateMode: AutovalidateMode.always,
-///             onChanged: () {
-///               Form.of(primaryFocus!.context!)!.save();
-///             },
-///             child: Wrap(
-///               children: List<Widget>.generate(5, (int index) {
-///                 return Padding(
-///                   padding: const EdgeInsets.all(8.0),
-///                   child: ConstrainedBox(
-///                     constraints: BoxConstraints.tight(const Size(200, 50)),
-///                     child: TextFormField(
-///                       onSaved: (String? value) {
-///                         print('Value for field $index saved as "$value"');
-///                       },
-///                     ),
-///                   ),
-///                 );
-///               }),
-///             ),
-///           ),
-///         ),
-///       ),
-///     ),
-///   );
-/// }
-/// ```
+/// ** See code in examples/api/lib/material/text_form_field/text_form_field.1.dart **
 /// {@end-tool}
 ///
 /// See also:
@@ -196,6 +155,7 @@ class TextFormField extends FormField<String> {
     AutovalidateMode? autovalidateMode,
     ScrollController? scrollController,
     String? restorationId,
+    bool enableIMEPersonalizedLearning = true,
   }) : assert(initialValue == null || controller == null),
        assert(textAlign != null),
        assert(autofocus != null),
@@ -228,8 +188,9 @@ class TextFormField extends FormField<String> {
          'minLines and maxLines must be null when expands is true.',
        ),
        assert(!obscureText || maxLines == 1, 'Obscured fields cannot be multiline.'),
-       assert(maxLength == null || maxLength > 0),
+       assert(maxLength == null || maxLength == TextField.noMaxLength || maxLength > 0),
        assert(enableInteractiveSelection != null),
+       assert(enableIMEPersonalizedLearning != null),
        super(
          key: key,
          restorationId: restorationId,
@@ -299,6 +260,7 @@ class TextFormField extends FormField<String> {
                buildCounter: buildCounter,
                autofillHints: autofillHints,
                scrollController: scrollController,
+               enableIMEPersonalizedLearning: enableIMEPersonalizedLearning,
              ),
            );
          },
@@ -311,7 +273,7 @@ class TextFormField extends FormField<String> {
   final TextEditingController? controller;
 
   @override
-  _TextFormFieldState createState() => _TextFormFieldState();
+  FormFieldState<String> createState() => _TextFormFieldState();
 }
 
 class _TextFormFieldState extends FormFieldState<String> {

@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io' as io;
 
 import 'package:file/memory.dart';
+import 'package:file_testing/file_testing.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/io.dart';
 import 'package:flutter_tools/src/base/platform.dart';
@@ -99,6 +100,25 @@ void main() {
       expect(destination.childFile('a.txt').existsSync(), isFalse);
       expect(destination.childDirectory('nested').childFile('a.txt').existsSync(), isFalse);
     });
+
+    testWithoutContext('Skip directories if shouldCopyDirectory returns false', () {
+      final MemoryFileSystem fileSystem = MemoryFileSystem.test();
+      final Directory origin = fileSystem.directory('/origin');
+      origin.createSync();
+      fileSystem.file(fileSystem.path.join('origin', 'a.txt')).writeAsStringSync('irrelevant');
+      fileSystem.directory('/origin/nested').createSync();
+      fileSystem.file(fileSystem.path.join('origin', 'nested', 'a.txt')).writeAsStringSync('irrelevant');
+      fileSystem.file(fileSystem.path.join('origin', 'nested', 'b.txt')).writeAsStringSync('irrelevant');
+
+      final Directory destination = fileSystem.directory('/destination');
+      copyDirectory(origin, destination, shouldCopyDirectory: (Directory directory) {
+        return !directory.path.endsWith('nested');
+      });
+
+      expect(destination, exists);
+      expect(destination.childDirectory('nested'), isNot(exists));
+      expect(destination.childDirectory('nested').childFile('b.txt'),isNot(exists));
+    });
   });
 
   group('escapePath', () {
@@ -117,7 +137,7 @@ void main() {
       final MemoryFileSystem fileSystem = MemoryFileSystem.test();
       final FileSystemUtils fsUtils = FileSystemUtils(
         fileSystem: fileSystem,
-        platform: FakePlatform(operatingSystem: 'linux'),
+        platform: FakePlatform(),
       );
       expect(fsUtils.escapePath('/foo/bar/cool.dart'), '/foo/bar/cool.dart');
       expect(fsUtils.escapePath('foo/bar/cool.dart'), 'foo/bar/cool.dart');
@@ -163,4 +183,4 @@ class FakeProcessSignal extends Fake implements io.ProcessSignal {
   @override
   Stream<io.ProcessSignal> watch() => controller.stream;
 }
-class FakeFile extends Fake implements File {}
+class FakeFile extends Fake implements File { }

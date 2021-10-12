@@ -50,18 +50,16 @@ class MacOSDevice extends DesktopDevice {
   @override
   String get name => 'macOS';
 
-  /// Returns [TargetPlatform.darwin_x64] even on macOS ARM devices.
-  ///
-  /// Build system, artifacts rely on Rosetta to translate to x86_64 on ARM.
   @override
-  Future<TargetPlatform> get targetPlatform async => TargetPlatform.darwin_x64;
+  Future<TargetPlatform> get targetPlatform async => TargetPlatform.darwin;
 
   @override
   Future<String> get targetPlatformDisplayName async {
     if (_operatingSystemUtils.hostPlatform == HostPlatform.darwin_arm) {
       return 'darwin-arm64';
+    } else {
+      return 'darwin-x64';
     }
-    return super.targetPlatformDisplayName;
   }
 
   @override
@@ -98,7 +96,7 @@ class MacOSDevice extends DesktopDevice {
       'open', package.applicationBundle(buildMode),
     ]).then((ProcessResult result) {
       if (result.exitCode != 0) {
-        print('Failed to foreground app; open returned ${result.exitCode}');
+        _logger.printError('Failed to foreground app; open returned ${result.exitCode}');
       }
     });
   }
@@ -150,4 +148,7 @@ class MacOSDevices extends PollingDeviceDiscovery {
 
   @override
   Future<List<String>> getDiagnostics() async => const <String>[];
+
+  @override
+  List<String> get wellKnownIds => const <String>['macos'];
 }

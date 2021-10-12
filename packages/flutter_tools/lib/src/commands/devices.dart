@@ -34,6 +34,9 @@ class DevicesCommand extends FlutterCommand {
   final String description = 'List all connected devices.';
 
   @override
+  final String category = FlutterCommandCategory.tools;
+
+  @override
   Duration get deviceDiscoveryTimeout {
     if (argResults['timeout'] != null) {
       final int timeoutSeconds = int.tryParse(stringArg('timeout'));
@@ -48,7 +51,7 @@ class DevicesCommand extends FlutterCommand {
   @override
   Future<void> validateCommand() {
     if (argResults['timeout'] != null) {
-      globals.printError('"--timeout" argument is deprecated, use "--${FlutterOptions.kDeviceTimeout}" instead');
+      globals.printError('${globals.logger.terminal.warningMark} The "--timeout" argument is deprecated; use "--${FlutterOptions.kDeviceTimeout}" instead.');
     }
     return super.validateCommand();
   }

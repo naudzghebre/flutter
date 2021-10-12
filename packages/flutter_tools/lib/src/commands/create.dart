@@ -16,6 +16,7 @@ import '../features.dart';
 import '../flutter_manifest.dart';
 import '../flutter_project_metadata.dart';
 import '../globals_null_migrated.dart' as globals;
+import '../ios/code_signing.dart';
 import '../project.dart';
 import '../reporting/reporting.dart';
 import '../runner/flutter_command.dart';
@@ -41,7 +42,10 @@ class CreateCommand extends CreateBase {
       valueHelp: 'type',
       allowedHelp: <String, String>{
         flutterProjectTypeToString(FlutterProjectType.app): '(default) Generate a Flutter application.',
-        flutterProjectTypeToString(FlutterProjectType.package): 'Generate a shareable Flutter project containing only Dart code.',
+        flutterProjectTypeToString(FlutterProjectType.skeleton): 'Generate a List View / Detail View Flutter '
+            'application that follows community best practices.',
+        flutterProjectTypeToString(FlutterProjectType.package): 'Generate a shareable Flutter project containing modular '
+            'Dart code.',
         flutterProjectTypeToString(FlutterProjectType.plugin): 'Generate a shareable Flutter project containing an API '
             'in Dart code with a platform-specific implementation for Android, for iOS code, or '
             'for both.',
@@ -76,15 +80,18 @@ class CreateCommand extends CreateBase {
     'If run on a project that already exists, this will repair the project, recreating any files that are missing.';
 
   @override
+  String get category => FlutterCommandCategory.project;
+
+  @override
   String get invocation => '${runner.executableName} $name <output directory>';
 
   @override
-  Future<Map<CustomDimensions, String>> get usageValues async {
-    return <CustomDimensions, String>{
-      CustomDimensions.commandCreateProjectType: stringArg('template'),
-      CustomDimensions.commandCreateAndroidLanguage: stringArg('android-language'),
-      CustomDimensions.commandCreateIosLanguage: stringArg('ios-language'),
-    };
+  Future<CustomDimensions> get usageValues async {
+    return CustomDimensions(
+      commandCreateProjectType: stringArg('template'),
+      commandCreateAndroidLanguage: stringArg('android-language'),
+      commandCreateIosLanguage: stringArg('ios-language'),
+    );
   }
 
   // Lazy-initialize the net utilities with values from the context.
@@ -227,6 +234,19 @@ class CreateCommand extends CreateBase {
       );
     }
 
+    final String dartSdk = globals.cache.dartSdkBuild;
+    final bool includeIos = featureFlags.isIOSEnabled && platforms.contains('ios');
+    String developmentTeam;
+    if (includeIos) {
+      developmentTeam = await getCodeSigningIdentityDevelopmentTeam(
+        processManager: globals.processManager,
+        platform: globals.platform,
+        logger: globals.logger,
+        config: globals.config,
+        terminal: globals.terminal,
+      );
+    }
+
     final Map<String, Object> templateContext = createTemplateContext(
       organization: organization,
       projectName: projectName,
@@ -235,7 +255,8 @@ class CreateCommand extends CreateBase {
       withPluginHook: generatePlugin,
       androidLanguage: stringArg('android-language'),
       iosLanguage: stringArg('ios-language'),
-      ios: featureFlags.isIOSEnabled && platforms.contains('ios'),
+      iosDevelopmentTeam: developmentTeam,
+      ios: includeIos,
       android: featureFlags.isAndroidEnabled && platforms.contains('android'),
       web: featureFlags.isWebEnabled && platforms.contains('web'),
       linux: featureFlags.isLinuxEnabled && platforms.contains('linux'),
@@ -243,7 +264,8 @@ class CreateCommand extends CreateBase {
       windows: featureFlags.isWindowsEnabled && platforms.contains('windows'),
       windowsUwp: featureFlags.isWindowsUwpEnabled && platforms.contains('winuwp'),
       // Enable null safety everywhere.
-      dartSdkVersionBounds: '">=2.12.0 <3.0.0"'
+      dartSdkVersionBounds: '">=$dartSdk <3.0.0"',
+      implementationTests: boolArg('implementation-tests'),
     );
 
     final String relativeDirPath = globals.fs.path.relative(projectDirPath);
@@ -262,7 +284,10 @@ class CreateCommand extends CreateBase {
     int generatedFileCount = 0;
     switch (template) {
       case FlutterProjectType.app:
-        generatedFileCount += await generateApp(relativeDir, templateContext, overwrite: overwrite);
+        generatedFileCount += await generateApp('app', relativeDir, templateContext, overwrite: overwrite);
+        break;
+      case FlutterProjectType.skeleton:
+        generatedFileCount += await generateApp('skeleton', relativeDir, templateContext, overwrite: overwrite);
         break;
       case FlutterProjectType.module:
         generatedFileCount += await _generateModule(relativeDir, templateContext, overwrite: overwrite);
@@ -301,7 +326,7 @@ class CreateCommand extends CreateBase {
       _printPluginDirectoryLocationMessage(relativePluginPath, projectName, platformsString);
       if (!creatingNewProject && requestedPlatforms.isNotEmpty) {
         _printPluginUpdatePubspecMessage(relativePluginPath, platformsString);
-      } else if (_getSupportedPlatformsInPlugin(projectDir).isEmpty){
+      } else if (_getSupportedPlatformsInPlugin(projectDir).isEmpty) {
         _printNoPluginMessage();
       }
 
@@ -421,16 +446,17 @@ Your $application code is in $relativeAppMain.
     final String projectName = templateContext['projectName'] as String;
     final String organization = templateContext['organization'] as String;
     final String androidPluginIdentifier = templateContext['androidIdentifier'] as String;
-    final String exampleProjectName = projectName + '_example';
+    final String exampleProjectName = '${projectName}_example';
     templateContext['projectName'] = exampleProjectName;
-    templateContext['androidIdentifier'] = createAndroidIdentifier(organization, exampleProjectName);
-    templateContext['iosIdentifier'] = createUTIIdentifier(organization, exampleProjectName);
-    templateContext['macosIdentifier'] = createUTIIdentifier(organization, exampleProjectName);
+    templateContext['androidIdentifier'] = CreateBase.createAndroidIdentifier(organization, exampleProjectName);
+    templateContext['iosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
+    templateContext['macosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
+    templateContext['windowsIdentifier'] = CreateBase.createWindowsIdentifier(organization, exampleProjectName);
     templateContext['description'] = 'Demonstrates how to use the $projectName plugin.';
     templateContext['pluginProjectName'] = projectName;
     templateContext['androidPluginIdentifier'] = androidPluginIdentifier;
 
-    generatedCount += await generateApp(project.example.directory, templateContext, overwrite: overwrite, pluginExampleApp: true);
+    generatedCount += await generateApp('app', project.example.directory, templateContext, overwrite: overwrite, pluginExampleApp: true);
     return generatedCount;
   }
 
@@ -482,7 +508,7 @@ void _printPluginDirectoryLocationMessage(String pluginPath, String projectName,
 
 Your plugin code is in $relativePluginMain.
 
-You example app code is in $relativeExampleMain.
+Your example app code is in $relativeExampleMain.
 
 ''');
   if (platformsString != null && platformsString.isNotEmpty) {

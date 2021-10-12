@@ -153,7 +153,7 @@ void main() {
         '           ║ TextSpan:\n'
         '           ║   <all styles inherited>\n'
         '           ║   "1"\n'
-        '           ╚═══════════\n'
+        '           ╚═══════════\n',
       ),
     );
   });
@@ -173,7 +173,6 @@ void main() {
         child: CustomScrollView(
           slivers: <Widget>[
             SliverFillViewport(
-              padEnds: true,
               viewportFraction: 0.5,
               delegate: delegate,
             ),

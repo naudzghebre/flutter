@@ -11,7 +11,7 @@ import 'package:flutter_tools/src/artifacts.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/commands/devices.dart';
 import 'package:flutter_tools/src/device.dart';
-import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:flutter_tools/src/globals_null_migrated.dart' as globals;
 
 import '../../src/common.dart';
 import '../../src/context.dart';
@@ -50,7 +50,7 @@ void main() {
       Artifacts: () => Artifacts.test(),
     });
 
-    testUsingContext('get devices\' platform types', () async {
+    testUsingContext("get devices' platform types", () async {
       final List<String> platformTypes = Device.devicesPlatformTypes(
         await globals.deviceManager.getAllConnectedDevices(),
       );
@@ -160,6 +160,6 @@ class NoDevicesManager extends DeviceManager {
   Future<List<Device>> refreshAllConnectedDevices({Duration timeout}) =>
     getAllConnectedDevices();
 
-@override
+  @override
   List<DeviceDiscovery> get deviceDiscoverers => <DeviceDiscovery>[];
 }

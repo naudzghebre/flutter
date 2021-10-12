@@ -12,7 +12,7 @@ import '../../base/common.dart';
 import '../../base/file_system.dart';
 import '../../base/io.dart';
 import '../../build_info.dart';
-import '../../globals.dart' as globals show xcode;
+import '../../globals_null_migrated.dart' as globals show xcode;
 import '../../macos/xcode.dart';
 import '../../project.dart';
 import '../build_system.dart';
@@ -35,7 +35,6 @@ abstract class AotAssemblyBase extends Target {
   @override
   Future<void> build(Environment environment) async {
     final AOTSnapshotter snapshotter = AOTSnapshotter(
-      reportTimings: false,
       fileSystem: environment.fileSystem,
       logger: environment.logger,
       xcode: globals.xcode,
@@ -69,8 +68,7 @@ abstract class AotAssemblyBase extends Target {
     }
 
     final String sdkRoot = environment.defines[kSdkRoot];
-    final EnvironmentType environmentType =
-        environmentTypeFromSdkroot(environment.fileSystem.directory(sdkRoot));
+    final EnvironmentType environmentType = environmentTypeFromSdkroot(sdkRoot, environment.fileSystem);
     if (environmentType == EnvironmentType.simulator) {
       throw Exception(
         'release/profile builds are only supported for physical devices. '
@@ -139,9 +137,9 @@ class AotAssemblyRelease extends AotAssemblyBase {
   List<Source> get inputs => const <Source>[
     Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/ios.dart'),
     Source.pattern('{BUILD_DIR}/app.dill'),
-    Source.artifact(Artifact.engineDartBinary),
+    Source.hostArtifact(HostArtifact.engineDartBinary),
     Source.artifact(Artifact.skyEnginePath),
-    // TODO(jonahwilliams): cannot reference gen_snapshot with artifacts since
+    // TODO(zanderso): cannot reference gen_snapshot with artifacts since
     // it resolves to a file (ios/gen_snapshot) that never exists. This was
     // split into gen_snapshot_arm64 and gen_snapshot_armv7.
     // Source.artifact(Artifact.genSnapshot,
@@ -174,9 +172,9 @@ class AotAssemblyProfile extends AotAssemblyBase {
   List<Source> get inputs => const <Source>[
     Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/ios.dart'),
     Source.pattern('{BUILD_DIR}/app.dill'),
-    Source.artifact(Artifact.engineDartBinary),
+    Source.hostArtifact(HostArtifact.engineDartBinary),
     Source.artifact(Artifact.skyEnginePath),
-    // TODO(jonahwilliams): cannot reference gen_snapshot with artifacts since
+    // TODO(zanderso): cannot reference gen_snapshot with artifacts since
     // it resolves to a file (ios/gen_snapshot) that never exists. This was
     // split into gen_snapshot_arm64 and gen_snapshot_armv7.
     // Source.artifact(Artifact.genSnapshot,
@@ -222,6 +220,10 @@ class DebugUniversalFramework extends Target {
 
   @override
   Future<void> build(Environment environment) async {
+    if (environment.defines[kSdkRoot] == null) {
+      throw MissingDefineException(kSdkRoot, name);
+    }
+
     // Generate a trivial App.framework.
     final Set<String> iosArchNames = environment.defines[kIosArchs]
       ?.split(' ')
@@ -292,8 +294,8 @@ abstract class UnpackIOS extends Target {
   }
 
   void _copyFramework(Environment environment) {
-    final Directory sdkRoot = environment.fileSystem.directory(environment.defines[kSdkRoot]);
-    final EnvironmentType environmentType = environmentTypeFromSdkroot(sdkRoot);
+    final String sdkRoot = environment.defines[kSdkRoot];
+    final EnvironmentType environmentType = environmentTypeFromSdkroot(sdkRoot, environment.fileSystem);
     final String basePath = environment.artifacts.getArtifactPath(
       Artifact.flutterFramework,
       platform: TargetPlatform.ios,
@@ -499,14 +501,9 @@ abstract class IosAssetBundle extends Target {
     );
 
     // Copy the plist from either the project or module.
-    // TODO(jonahwilliams): add plist to inputs
+    // TODO(zanderso): add plist to inputs
     final FlutterProject flutterProject = FlutterProject.fromDirectory(environment.projectDir);
-    final Directory plistRoot = flutterProject.isModule
-      ? flutterProject.ios.ephemeralModuleDirectory
-      : environment.projectDir.childDirectory('ios');
-    plistRoot
-      .childDirectory('Flutter')
-      .childFile('AppFrameworkInfo.plist')
+    flutterProject.ios.appFrameworkInfoPlist
       .copySync(environment.outputDir
       .childDirectory('App.framework')
       .childFile('Info.plist').path);
@@ -584,7 +581,8 @@ Future<void> _createStubAppFramework(File outputFile, Environment environment,
     throwToolExit('Failed to create App.framework stub at ${outputFile.path}: $e');
   }
 
-  final Directory tempDir = outputFile.fileSystem.systemTempDirectory
+  final FileSystem fileSystem = environment.fileSystem;
+  final Directory tempDir = fileSystem.systemTempDirectory
     .createTempSync('flutter_tools_stub_source.');
   try {
     final File stubSource = tempDir.childFile('debug_app.cc')
@@ -593,6 +591,8 @@ Future<void> _createStubAppFramework(File outputFile, Environment environment,
   ''');
 
     final String sdkRoot = environment.defines[kSdkRoot];
+    final EnvironmentType environmentType = environmentTypeFromSdkroot(sdkRoot, fileSystem);
+
     await globals.xcode.clang(<String>[
       '-x',
       'c',
@@ -601,7 +601,10 @@ Future<void> _createStubAppFramework(File outputFile, Environment environment,
       '-dynamiclib',
       '-fembed-bitcode-marker',
       // Keep version in sync with AOTSnapshotter flag
-      '-miphoneos-version-min=8.0',
+      if (environmentType == EnvironmentType.physical)
+        '-miphoneos-version-min=9.0'
+      else
+        '-miphonesimulator-version-min=9.0',
       '-Xlinker', '-rpath', '-Xlinker', '@executable_path/Frameworks',
       '-Xlinker', '-rpath', '-Xlinker', '@loader_path/Frameworks',
       '-install_name', '@rpath/App.framework/App',

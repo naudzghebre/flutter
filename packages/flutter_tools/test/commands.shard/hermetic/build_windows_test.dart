@@ -15,13 +15,11 @@ import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/reporting/reporting.dart';
 import 'package:flutter_tools/src/windows/visual_studio.dart';
 import 'package:test/fake.dart';
-import 'package:process/process.dart';
 
 import '../../src/common.dart';
 import '../../src/context.dart';
 import '../../src/fakes.dart';
 import '../../src/test_flutter_command_runner.dart';
-import '../../src/testbed.dart';
 
 const String flutterRoot = r'C:\flutter';
 const String buildFilePath = r'C:\windows\CMakeLists.txt';
@@ -38,7 +36,6 @@ final Platform windowsPlatform = FakePlatform(
   }
 );
 final Platform notWindowsPlatform = FakePlatform(
-  operatingSystem: 'linux',
   environment: <String, String>{
     'FLUTTER_ROOT': flutterRoot,
   }
@@ -53,6 +50,7 @@ void main() {
 
   setUpAll(() {
     Cache.disableLocking();
+    Cache.flutterRoot = '';
   });
 
   setUp(() {
@@ -196,7 +194,7 @@ void main() {
     Platform: () => windowsPlatform,
     FileSystem: () => fileSystem,
     ProcessManager: () => FakeProcessManager.any(),
-    FeatureFlags: () => TestFeatureFlags(isWindowsEnabled: false),
+    FeatureFlags: () => TestFeatureFlags(),
   });
 
   testUsingContext('Windows build does not spew stdout to status logger', () async {
@@ -397,7 +395,7 @@ C:\foo\windows\runner\main.cpp(17,1): error C2065: 'Baz': undeclared identifier 
   testUsingContext('hidden when not enabled on Windows host', () {
     expect(BuildWindowsCommand().hidden, true);
   }, overrides: <Type, Generator>{
-    FeatureFlags: () => TestFeatureFlags(isWindowsEnabled: false),
+    FeatureFlags: () => TestFeatureFlags(),
     Platform: () => windowsPlatform,
   });
 
@@ -530,7 +528,7 @@ C:\foo\windows\runner\main.cpp(17,1): error C2065: 'Baz': undeclared identifier 
     setUpMockProjectFilesForBuild();
 
     // This message should include 'To enable, run "flutter config --enable-windows-uwp-desktop"."
-    // once the `windowsUwpEmbedding` feature is available on all platforms.
+    // once the `windowsUwpEmbedding` feature is available on all channels.
     expect(createTestCommandRunner(command).run(
         const <String>['winuwp', '--no-pub']
     ), throwsToolExit(message: RegExp(r'"build winuwp" is not currently supported\.$')));
@@ -538,22 +536,37 @@ C:\foo\windows\runner\main.cpp(17,1): error C2065: 'Baz': undeclared identifier 
     Platform: () => windowsPlatform,
     FileSystem: () => fileSystem,
     ProcessManager: () => FakeProcessManager.any(),
-    FeatureFlags: () => TestFeatureFlags(isWindowsUwpEnabled: false),
+    FeatureFlags: () => TestFeatureFlags(),
   });
 
-  testUsingContext('Windows UWP build fails after writing Cmake file', () async {
+  testUsingContext('Windows UWP build completes successfully', () async {
     final FakeVisualStudio fakeVisualStudio = FakeVisualStudio(cmakePath);
     final BuildWindowsUwpCommand command = BuildWindowsUwpCommand()
       ..visualStudioOverride = fakeVisualStudio;
     setUpMockUwpFilesForBuild(0);
 
-    expect(createTestCommandRunner(command).run(
+    await createTestCommandRunner(command).run(
       const <String>['winuwp', '--no-pub']
-    ), throwsToolExit(message: 'Windows UWP builds are not implemented'));
+    );
   }, overrides: <Type, Generator>{
     Platform: () => windowsPlatform,
     FileSystem: () => fileSystem,
     ProcessManager: () => FakeProcessManager.list(<FakeCommand>[
+      const FakeCommand(
+        command: <String>[
+          r'C:\flutter\bin\flutter',
+          'assemble',
+          '--no-version-check',
+          '--output=build',
+          '-dTargetPlatform=windows-uwp-x64',
+          '-dTrackWidgetCreation=true',
+          '-dBuildMode=release',
+          r'-dTargetFile=lib\main.dart',
+          '-dTreeShakeIcons="true"',
+          '-dDartObfuscation=false',
+          'release_bundle_windows_assets_uwp'
+        ],
+      ),
       cmakeGenerationCommand(winuwp: true),
       buildCommand('Release',  stdout: 'STDOUT STUFF', winuwp: true),
     ]),

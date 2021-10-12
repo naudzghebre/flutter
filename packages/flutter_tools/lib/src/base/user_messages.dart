@@ -117,9 +117,12 @@ class UserMessages {
       'Android sdkmanager tool was found, but failed to run ($sdkManagerPath): "$error".\n'
       'Try re-installing or updating your Android SDK,\n'
       'visit ${_androidSdkInstallUrl(platform)} for detailed instructions.';
-  String androidSdkBuildToolsOutdated(String managerPath, int sdkMinVersion, String buildToolsMinVersion, Platform platform) =>
+  String androidSdkBuildToolsOutdated(int sdkMinVersion, String buildToolsMinVersion, Platform platform) =>
       'Flutter requires Android SDK $sdkMinVersion and the Android BuildTools $buildToolsMinVersion\n'
       'To update the Android SDK visit ${_androidSdkInstallUrl(platform)} for detailed instructions.';
+  String get androidMissingCmdTools => 'cmdline-tools component is missing\n'
+      'Run `path/to/sdkmanager --install "cmdline-tools;latest"`\n'
+      'See https://developer.android.com/studio/command-line for more details.';
 
   // Messages used in AndroidStudioValidator
   String androidStudioVersion(String version) => 'version $version';
@@ -142,9 +145,14 @@ class UserMessages {
   // Messages used in XcodeValidator
   String xcodeLocation(String location) => 'Xcode at $location';
 
-  String xcodeOutdated(String currentVersion, String recommendedVersion) =>
-      'Xcode $currentVersion out of date ($recommendedVersion is recommended).\n'
+  String xcodeOutdated(String requiredVersion) =>
+      'Flutter requires a minimum Xcode version of $requiredVersion.\n'
       'Download the latest version or update via the Mac App Store.';
+
+  String xcodeRecommended(String recommendedVersion) =>
+      'Flutter recommends a minimum Xcode version of $recommendedVersion.\n'
+      'Download the latest version or update via the Mac App Store.';
+
   String get xcodeEula => "Xcode end user license agreement not signed; open Xcode or run the command 'sudo xcodebuild -license'.";
   String get xcodeMissingSimct =>
       'Xcode requires additional components to be installed in order to run.\n'
@@ -226,7 +234,7 @@ class UserMessages {
       'can be downloaded from https://github.com/ninja-build/ninja/releases';
   String ninjaTooOld(String minimumVersion) => 'ninja $minimumVersion or later is required.';
   String pkgConfigVersion(String version) => 'pkg-config version $version';
-  String get pkgConfigMissing => 'pgk-config is required for Linux development.\n'
+  String get pkgConfigMissing => 'pkg-config is required for Linux development.\n'
       'It is likely available from your distribution (e.g.: apt install pkg-config), or '
       'can be downloaded from https://www.freedesktop.org/wiki/Software/pkg-config/';
   String pkgConfigTooOld(String minimumVersion) => 'pkg-config $minimumVersion or later is required.';

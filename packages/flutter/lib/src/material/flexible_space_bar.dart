@@ -54,7 +54,7 @@ enum StretchMode {
 /// [FlexibleSpaceBar.createSettings], to convey sizing information down to the
 /// [FlexibleSpaceBar].
 ///
-/// {@tool dartpad --template=freeform}
+/// {@tool dartpad}
 /// This sample application demonstrates the different features of the
 /// [FlexibleSpaceBar] when used in a [SliverAppBar]. This app bar is configured
 /// to stretch into the overscroll space, and uses the
@@ -62,83 +62,7 @@ enum StretchMode {
 /// `zoomBackground`. The app bar also makes use of [CollapseMode.parallax] by
 /// default.
 ///
-/// ```dart imports
-/// import 'package:flutter/material.dart';
-/// ```
-/// ```dart
-/// void main() => runApp(const MaterialApp(home: MyApp()));
-///
-/// class MyApp extends StatelessWidget {
-///   const MyApp({Key? key}) : super(key: key);
-///
-///   @override
-///   Widget build(BuildContext context) {
-///     return Scaffold(
-///       body: CustomScrollView(
-///         physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-///         slivers: <Widget>[
-///           SliverAppBar(
-///             stretch: true,
-///             onStretchTrigger: () {
-///               // Function callback for stretch
-///               return Future<void>.value();
-///             },
-///             expandedHeight: 300.0,
-///             flexibleSpace: FlexibleSpaceBar(
-///               stretchModes: const <StretchMode>[
-///                 StretchMode.zoomBackground,
-///                 StretchMode.blurBackground,
-///                 StretchMode.fadeTitle,
-///               ],
-///               centerTitle: true,
-///               title: const Text('Flight Report'),
-///               background: Stack(
-///                 fit: StackFit.expand,
-///                 children: <Widget>[
-///                   Image.network(
-///                     'https://flutter.github.io/assets-for-api-docs/assets/widgets/owl-2.jpg',
-///                     fit: BoxFit.cover,
-///                   ),
-///                   const DecoratedBox(
-///                     decoration: BoxDecoration(
-///                       gradient: LinearGradient(
-///                         begin: Alignment(0.0, 0.5),
-///                         end: Alignment(0.0, 0.0),
-///                         colors: <Color>[
-///                           Color(0x60000000),
-///                           Color(0x00000000),
-///                         ],
-///                       ),
-///                     ),
-///                   ),
-///                 ],
-///               ),
-///             ),
-///           ),
-///           SliverList(
-///             delegate: SliverChildListDelegate(
-///               const <Widget>[
-///                 ListTile(
-///                   leading: Icon(Icons.wb_sunny),
-///                   title: Text('Sunday'),
-///                   subtitle: Text('sunny, h: 80, l: 65'),
-///                 ),
-///                 ListTile(
-///                   leading: Icon(Icons.wb_sunny),
-///                   title: Text('Monday'),
-///                   subtitle: Text('sunny, h: 80, l: 65'),
-///                 ),
-///                 // ListTiles++
-///               ],
-///             ),
-///           ),
-///         ],
-///       ),
-///     );
-///   }
-/// }
-///
-/// ```
+/// ** See code in examples/api/lib/material/flexible_space_bar/flexible_space_bar.0.dart **
 /// {@end-tool}
 ///
 /// See also:
@@ -210,7 +134,7 @@ class FlexibleSpaceBar extends StatefulWidget {
   /// height of the resulting [FlexibleSpaceBar] when fully expanded.
   /// `currentExtent` sets the scale of the [FlexibleSpaceBar.background] and
   /// [FlexibleSpaceBar.title] widgets of [FlexibleSpaceBar] upon
-  /// initialization. `scrolledUnder` is true if the the [FlexibleSpaceBar]
+  /// initialization. `scrolledUnder` is true if the [FlexibleSpaceBar]
   /// overlaps the app's primary scrollable, false if it does not, and null
   /// if the caller has not determined as much.
   /// See also:
@@ -237,7 +161,7 @@ class FlexibleSpaceBar extends StatefulWidget {
   }
 
   @override
-  _FlexibleSpaceBarState createState() => _FlexibleSpaceBarState();
+  State<FlexibleSpaceBar> createState() => _FlexibleSpaceBarState();
 }
 
 class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
@@ -305,7 +229,11 @@ class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
           final double fadeStart = math.max(0.0, 1.0 - kToolbarHeight / deltaExtent);
           const double fadeEnd = 1.0;
           assert(fadeStart <= fadeEnd);
-          final double opacity = 1.0 - Interval(fadeStart, fadeEnd).transform(t);
+          // If the min and max extent are the same, the app bar cannot collapse
+          // and the content should be visible, so opacity = 1.
+          final double opacity = settings.maxExtent == settings.minExtent
+              ? 1.0
+              : 1.0 - Interval(fadeStart, fadeEnd).transform(t);
           double height = settings.maxExtent;
 
           // StretchMode.zoomBackground
@@ -333,12 +261,12 @@ class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
             final double blurAmount = (constraints.maxHeight - settings.maxExtent) / 10;
             children.add(Positioned.fill(
               child: BackdropFilter(
-                child: Container(
-                  color: Colors.transparent,
-                ),
                 filter: ui.ImageFilter.blur(
                   sigmaX: blurAmount,
                   sigmaY: blurAmount,
+                ),
+                child: Container(
+                  color: Colors.transparent,
                 ),
               ),
             ));

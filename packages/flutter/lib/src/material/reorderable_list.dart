@@ -29,41 +29,10 @@ import 'theme.dart';
 /// The [onReorder] parameter is required and will be called when a child
 /// widget is dragged to a new position.
 ///
-/// {@tool dartpad --template=stateful_widget_scaffold}
+/// {@tool dartpad}
 ///
-/// ```dart
-/// final List<int> _items = List<int>.generate(50, (int index) => index);
 ///
-/// @override
-/// Widget build(BuildContext context){
-///   final ColorScheme colorScheme = Theme.of(context).colorScheme;
-///   final Color oddItemColor = colorScheme.primary.withOpacity(0.05);
-///   final Color evenItemColor = colorScheme.primary.withOpacity(0.15);
-///
-///   return ReorderableListView(
-///     padding: const EdgeInsets.symmetric(horizontal: 40),
-///     children: <Widget>[
-///       for (int index = 0; index < _items.length; index++)
-///         ListTile(
-///           key: Key('$index'),
-///           tileColor: _items[index].isOdd ? oddItemColor : evenItemColor,
-///           title: Text('Item ${_items[index]}'),
-///         ),
-///     ],
-///     onReorder: (int oldIndex, int newIndex) {
-///       setState(() {
-///         if (oldIndex < newIndex) {
-///           newIndex -= 1;
-///         }
-///         final int item = _items.removeAt(oldIndex);
-///         _items.insert(newIndex, item);
-///       });
-///     },
-///   );
-/// }
-///
-/// ```
-///
+/// ** See code in examples/api/lib/material/reorderable_list/reorderable_list_view.0.dart **
 ///{@end-tool}
 class ReorderableListView extends StatefulWidget {
   /// Creates a reorderable list from a pre-built list of widgets.
@@ -76,6 +45,8 @@ class ReorderableListView extends StatefulWidget {
     Key? key,
     required List<Widget> children,
     required this.onReorder,
+    this.itemExtent,
+    this.prototypeItem,
     this.proxyDecorator,
     this.buildDefaultDragHandles = true,
     this.padding,
@@ -95,6 +66,10 @@ class ReorderableListView extends StatefulWidget {
   }) : assert(scrollDirection != null),
        assert(onReorder != null),
        assert(children != null),
+       assert(
+         itemExtent == null || prototypeItem == null,
+         'You can only pass itemExtent or prototypeItem, not both',
+       ),
        assert(
          children.every((Widget w) => w.key != null),
          'All children of this widget must have a key.',
@@ -124,40 +99,10 @@ class ReorderableListView extends StatefulWidget {
   /// This example creates a list using the
   /// [ReorderableListView.builder] constructor. Using the [IndexedWidgetBuilder], The
   /// list items are built lazily on demand.
-  /// {@tool dartpad --template=stateful_widget_material}
+  /// {@tool dartpad}
   ///
-  /// ```dart
-  /// final List<int> _items = List<int>.generate(50, (int index) => index);
   ///
-  /// @override
-  /// Widget build(BuildContext context) {
-  ///   final ColorScheme colorScheme = Theme.of(context).colorScheme;
-  ///   final Color oddItemColor = colorScheme.primary.withOpacity(0.05);
-  ///   final Color evenItemColor = colorScheme.primary.withOpacity(0.15);
-  ///
-  ///   return ReorderableListView.builder(
-  ///     padding: const EdgeInsets.symmetric(horizontal: 40),
-  ///     itemCount:_items.length,
-  ///     itemBuilder: (BuildContext context, int index) {
-  ///       return ListTile(
-  ///         key: Key('$index'),
-  ///         tileColor: _items[index].isOdd ? oddItemColor : evenItemColor,
-  ///         title: Text('Item ${_items[index]}'),
-  ///         );
-  ///     },
-  ///     onReorder: (int oldIndex, int newIndex) {
-  ///       setState(() {
-  ///         if (oldIndex < newIndex) {
-  ///           newIndex -= 1;
-  ///         }
-  ///         final int item = _items.removeAt(oldIndex);
-  ///         _items.insert(newIndex, item);
-  ///       });
-  ///     },
-  ///   );
-  /// }
-  ///
-  /// ```
+  /// ** See code in examples/api/lib/material/reorderable_list/reorderable_list_view.reorderable_list_view_builder.0.dart **
   /// {@end-tool}
   /// See also:
   ///
@@ -168,6 +113,8 @@ class ReorderableListView extends StatefulWidget {
     required this.itemBuilder,
     required this.itemCount,
     required this.onReorder,
+    this.itemExtent,
+    this.prototypeItem,
     this.proxyDecorator,
     this.buildDefaultDragHandles = true,
     this.padding,
@@ -187,6 +134,10 @@ class ReorderableListView extends StatefulWidget {
   }) : assert(scrollDirection != null),
        assert(itemCount >= 0),
        assert(onReorder != null),
+       assert(
+         itemExtent == null || prototypeItem == null,
+         'You can only pass itemExtent or prototypeItem, not both',
+       ),
        assert(buildDefaultDragHandles != null),
        super(key: key);
 
@@ -220,55 +171,10 @@ class ReorderableListView extends StatefulWidget {
   /// The following sample specifies `buildDefaultDragHandles: false`, and
   /// uses a [Card] at the leading edge of each item for the item's drag handle.
   ///
-  /// {@tool dartpad --template=stateful_widget_scaffold}
+  /// {@tool dartpad}
   ///
-  /// ```dart
-  /// final List<int> _items = List<int>.generate(50, (int index) => index);
   ///
-  /// @override
-  /// Widget build(BuildContext context){
-  ///   final ColorScheme colorScheme = Theme.of(context).colorScheme;
-  ///   final Color oddItemColor = colorScheme.primary.withOpacity(0.05);
-  ///   final Color evenItemColor = colorScheme.primary.withOpacity(0.15);
-  ///
-  ///   return ReorderableListView(
-  ///     buildDefaultDragHandles: false,
-  ///     children: <Widget>[
-  ///       for (int index = 0; index < _items.length; index++)
-  ///         Container(
-  ///           key: Key('$index'),
-  ///           color: _items[index].isOdd ? oddItemColor : evenItemColor,
-  ///           child: Row(
-  ///             children: <Widget>[
-  ///               Container(
-  ///                 width: 64,
-  ///                 height: 64,
-  ///                 padding: const EdgeInsets.all(8),
-  ///                 child: ReorderableDragStartListener(
-  ///                   index: index,
-  ///                   child: Card(
-  ///                     color: colorScheme.primary,
-  ///                     elevation: 2,
-  ///                   ),
-  ///                 ),
-  ///               ),
-  ///               Text('Item ${_items[index]}'),
-  ///             ],
-  ///           ),
-  ///         ),
-  ///     ],
-  ///     onReorder: (int oldIndex, int newIndex) {
-  ///       setState(() {
-  ///         if (oldIndex < newIndex) {
-  ///           newIndex -= 1;
-  ///         }
-  ///         final int item = _items.removeAt(oldIndex);
-  ///         _items.insert(newIndex, item);
-  ///       });
-  ///     },
-  ///   );
-  /// }
-  /// ```
+  /// ** See code in examples/api/lib/material/reorderable_list/reorderable_list_view.build_default_drag_handles.0.dart **
   ///{@end-tool}
   final bool buildDefaultDragHandles;
 
@@ -323,8 +229,14 @@ class ReorderableListView extends StatefulWidget {
   /// Defaults to [Clip.hardEdge].
   final Clip clipBehavior;
 
+  /// {@macro flutter.widgets.list_view.itemExtent}
+  final double? itemExtent;
+
+  /// {@macro flutter.widgets.list_view.prototypeItem}
+  final Widget? prototypeItem;
+
   @override
-  _ReorderableListViewState createState() => _ReorderableListViewState();
+  State<ReorderableListView> createState() => _ReorderableListViewState();
 }
 
 class _ReorderableListViewState extends State<ReorderableListView> {
@@ -403,7 +315,6 @@ class _ReorderableListViewState extends State<ReorderableListView> {
 
     if (widget.buildDefaultDragHandles) {
       switch (Theme.of(context).platform) {
-        case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
         case TargetPlatform.macOS:
@@ -452,6 +363,7 @@ class _ReorderableListViewState extends State<ReorderableListView> {
 
         case TargetPlatform.iOS:
         case TargetPlatform.android:
+        case TargetPlatform.fuchsia:
           return ReorderableDelayedDragStartListener(
             key: itemGlobalKey,
             index: index,
@@ -473,8 +385,8 @@ class _ReorderableListViewState extends State<ReorderableListView> {
         final double animValue = Curves.easeInOut.transform(animation.value);
         final double elevation = lerpDouble(0, 6, animValue)!;
         return Material(
-          child: child,
           elevation: elevation,
+          child: child,
         );
       },
       child: child,
@@ -539,12 +451,14 @@ class _ReorderableListViewState extends State<ReorderableListView> {
         if (widget.header != null)
           SliverPadding(
             padding: headerPadding,
-            sliver: SliverToBoxAdapter(child: widget.header!),
+            sliver: SliverToBoxAdapter(child: widget.header),
           ),
         SliverPadding(
           padding: listPadding,
           sliver: SliverReorderableList(
             itemBuilder: _itemBuilder,
+            itemExtent: widget.itemExtent,
+            prototypeItem: widget.prototypeItem,
             itemCount: widget.itemCount,
             onReorder: widget.onReorder,
             proxyDecorator: widget.proxyDecorator ?? _proxyDecorator,

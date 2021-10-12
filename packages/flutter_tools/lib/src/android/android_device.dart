@@ -236,9 +236,20 @@ class AndroidDevice extends Device {
         return buildMode != BuildMode.jitRelease;
       case TargetPlatform.android_x86:
         return buildMode == BuildMode.debug;
-      default:
+      case TargetPlatform.android:
+      case TargetPlatform.darwin:
+      case TargetPlatform.fuchsia_arm64:
+      case TargetPlatform.fuchsia_x64:
+      case TargetPlatform.ios:
+      case TargetPlatform.linux_arm64:
+      case TargetPlatform.linux_x64:
+      case TargetPlatform.tester:
+      case TargetPlatform.web_javascript:
+      case TargetPlatform.windows_uwp_x64:
+      case TargetPlatform.windows_x64:
         throw UnsupportedError('Invalid target platform for Android');
     }
+    throw null; // dead code, remove after null migration
   }
 
   @override
@@ -560,7 +571,17 @@ class AndroidDevice extends Device {
       case TargetPlatform.android_x86:
         androidArch = AndroidArch.x86;
         break;
-      default:
+      case TargetPlatform.android:
+      case TargetPlatform.darwin:
+      case TargetPlatform.fuchsia_arm64:
+      case TargetPlatform.fuchsia_x64:
+      case TargetPlatform.ios:
+      case TargetPlatform.linux_arm64:
+      case TargetPlatform.linux_x64:
+      case TargetPlatform.tester:
+      case TargetPlatform.web_javascript:
+      case TargetPlatform.windows_uwp_x64:
+      case TargetPlatform.windows_x64:
         _logger.printError('Android platforms are only supported.');
         return LaunchResult.failed();
     }
@@ -632,7 +653,9 @@ class AndroidDevice extends Device {
       if (debuggingOptions.traceSkia)
         ...<String>['--ez', 'trace-skia', 'true'],
       if (debuggingOptions.traceAllowlist != null)
-        ...<String>['--ez', 'trace-allowlist', debuggingOptions.traceAllowlist],
+        ...<String>['--es', 'trace-allowlist', debuggingOptions.traceAllowlist],
+      if (debuggingOptions.traceSkiaAllowlist != null)
+        ...<String>['--es', 'trace-skia-allowlist', debuggingOptions.traceSkiaAllowlist],
       if (debuggingOptions.traceSystrace)
         ...<String>['--ez', 'trace-systrace', 'true'],
       if (debuggingOptions.endlessTraceBuffer)
@@ -1031,7 +1054,7 @@ class AdbLogReader extends DeviceLogReader {
       final String lastLogcatTimestamp = await device.lastLogcatTimestamp();
       args.addAll(<String>[
         '-T',
-        if (lastLogcatTimestamp != null) '\'$lastLogcatTimestamp\'' else '0',
+        if (lastLogcatTimestamp != null) "'$lastLogcatTimestamp'" else '0',
       ]);
     }
     final Process process = await processManager.start(device.adbCommandForDevice(args));
@@ -1313,13 +1336,10 @@ class AndroidDevicePortForwarder extends DevicePortForwarder {
       ],
       throwOnError: false,
     );
-    // The port may have already been unforwarded, for example if there
-    // are multiple attach process already connected.
-    if (runResult.exitCode == 0 || runResult
-      .stderr.contains("listener '$tcpLine' not found")) {
+    if (runResult.exitCode == 0) {
       return;
     }
-    runResult.throwException('Process exited abnormally:\n$runResult');
+    _logger.printError('Failed to unforward port: $runResult');
   }
 
   @override

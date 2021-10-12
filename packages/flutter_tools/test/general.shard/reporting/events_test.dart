@@ -74,9 +74,9 @@ void main() {
 
     expect(usage.events, unorderedEquals(<TestUsageEvent>[
       const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'runtime-mode', label: 'NullSafetyMode.sound'),
-      const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: <String, String>{
+      TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: CustomDimensions.fromMap(<String, String>{
       'cd49': '1', 'cd50': '3',
-      }),
+      })),
       const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'language-version', label: '2.12'),
     ]));
   });
@@ -98,16 +98,16 @@ void main() {
 
     expect(usage.events, unorderedEquals(<TestUsageEvent>[
       const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'runtime-mode', label: 'NullSafetyMode.sound'),
-      const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: <String, String>{
+      TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: CustomDimensions.fromMap(<String, String>{
         'cd49': '1', 'cd50': '3',
-      }),
+      })),
     ]));
   });
 
   testWithoutContext('a null language version is treated as unmigrated', () {
     final TestUsage usage = TestUsage();
     final PackageConfig packageConfig = PackageConfig(<Package>[
-      Package('foo', Uri.parse('file:///foo/lib/'), languageVersion: null),
+      Package('foo', Uri.parse('file:///foo/lib/')),
     ]);
 
     NullSafetyAnalysisEvent(
@@ -119,9 +119,9 @@ void main() {
 
     expect(usage.events, unorderedEquals(<TestUsageEvent>[
       const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'runtime-mode', label: 'NullSafetyMode.sound'),
-      const TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: <String, String>{
+      TestUsageEvent(NullSafetyAnalysisEvent.kNullSafetyCategory, 'stats', parameters: CustomDimensions.fromMap(<String, String>{
         'cd49': '0', 'cd50': '1',
-      }),
+      })),
     ]));
   });
 }

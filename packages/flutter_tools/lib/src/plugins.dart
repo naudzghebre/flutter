@@ -13,11 +13,18 @@ class Plugin {
     required this.name,
     required this.path,
     required this.platforms,
+    required this.defaultPackagePlatforms,
+    required this.pluginDartClassPlatforms,
     required this.dependencies,
+    required this.isDirectDependency,
+    this.implementsPackage,
   }) : assert(name != null),
        assert(path != null),
        assert(platforms != null),
-       assert(dependencies != null);
+       assert(defaultPackagePlatforms != null),
+       assert(pluginDartClassPlatforms != null),
+       assert(dependencies != null),
+       assert(isDirectDependency != null);
 
   /// Parses [Plugin] specification from the provided pluginYaml.
   ///
@@ -53,26 +60,41 @@ class Plugin {
     YamlMap? pluginYaml,
     List<String> dependencies, {
     required FileSystem fileSystem,
+    Set<String>? appDependencies,
   }) {
     final List<String> errors = validatePluginYaml(pluginYaml);
     if (errors.isNotEmpty) {
       throwToolExit('Invalid plugin specification $name.\n${errors.join('\n')}');
     }
     if (pluginYaml != null && pluginYaml['platforms'] != null) {
-      return Plugin._fromMultiPlatformYaml(name, path, pluginYaml, dependencies, fileSystem);
+      return Plugin._fromMultiPlatformYaml(
+        name,
+        path,
+        pluginYaml,
+        dependencies,
+        fileSystem,
+        appDependencies != null && appDependencies.contains(name),
+      );
     }
-    return Plugin._fromLegacyYaml(name, path, pluginYaml, dependencies, fileSystem);
+    return Plugin._fromLegacyYaml(
+      name,
+      path,
+      pluginYaml,
+      dependencies,
+      fileSystem,
+      appDependencies != null && appDependencies.contains(name),
+    );
   }
 
   factory Plugin._fromMultiPlatformYaml(
     String name,
     String path,
-    dynamic pluginYaml,
+    YamlMap pluginYaml,
     List<String> dependencies,
     FileSystem fileSystem,
+    bool isDirectDependency,
   ) {
-    assert (pluginYaml != null && pluginYaml['platforms'] != null,
-            'Invalid multi-platform plugin specification $name.');
+    assert (pluginYaml['platforms'] != null, 'Invalid multi-platform plugin specification $name.');
     final YamlMap platformsYaml = pluginYaml['platforms'] as YamlMap;
 
     assert (_validateMultiPlatformYaml(platformsYaml).isEmpty,
@@ -114,11 +136,38 @@ class Plugin {
           WindowsPlugin.fromYaml(name, platformsYaml[WindowsPlugin.kConfigKey] as YamlMap);
     }
 
+    // TODO(stuartmorgan): Consider merging web into this common handling; the
+    // fact that its implementation of Dart-only plugins and default packages
+    // are separate is legacy.
+    final List<String> sharedHandlingPlatforms = <String>[
+      AndroidPlugin.kConfigKey,
+      IOSPlugin.kConfigKey,
+      LinuxPlugin.kConfigKey,
+      MacOSPlugin.kConfigKey,
+      WindowsPlugin.kConfigKey,
+    ];
+    final Map<String, String> defaultPackages = <String, String>{};
+    final Map<String, String> dartPluginClasses = <String, String>{};
+    for (final String platform in sharedHandlingPlatforms) {
+        final String? defaultPackage = _getDefaultPackageForPlatform(platformsYaml, platform);
+        if (defaultPackage != null) {
+          defaultPackages[platform] = defaultPackage;
+        }
+        final String? dartClass = _getPluginDartClassForPlatform(platformsYaml, platform);
+        if (dartClass != null) {
+          dartPluginClasses[platform] = dartClass;
+        }
+    }
+
     return Plugin(
       name: name,
       path: path,
       platforms: platforms,
+      defaultPackagePlatforms: defaultPackages,
+      pluginDartClassPlatforms: dartPluginClasses,
       dependencies: dependencies,
+      isDirectDependency: isDirectDependency,
+      implementsPackage: pluginYaml['implements'] != null ? pluginYaml['implements'] as String : '',
     );
   }
 
@@ -128,9 +177,10 @@ class Plugin {
     dynamic pluginYaml,
     List<String> dependencies,
     FileSystem fileSystem,
+    bool isDirectDependency,
   ) {
     final Map<String, PluginPlatform> platforms = <String, PluginPlatform>{};
-    final String pluginClass = pluginYaml['pluginClass'] as String;
+    final String pluginClass = (pluginYaml as Map<dynamic, dynamic>)['pluginClass'] as String;
     if (pluginYaml != null && pluginClass != null) {
       final String androidPackage = pluginYaml['androidPackage'] as String;
       if (androidPackage != null) {
@@ -155,7 +205,10 @@ class Plugin {
       name: name,
       path: path,
       platforms: platforms,
+      defaultPackagePlatforms: <String, String>{},
+      pluginDartClassPlatforms: <String, String>{},
       dependencies: dependencies,
+      isDirectDependency: isDirectDependency,
     );
   }
 
@@ -271,11 +324,41 @@ class Plugin {
     return errors;
   }
 
-  static bool _providesImplementationForPlatform(YamlMap platformsYaml, String platformKey) {
+  static bool _supportsPlatform(YamlMap platformsYaml, String platformKey) {
     if (!platformsYaml.containsKey(platformKey)) {
       return false;
     }
-    if ((platformsYaml[platformKey] as YamlMap).containsKey('default_package')) {
+    if (platformsYaml[platformKey] is YamlMap) {
+      return true;
+    }
+    return false;
+  }
+
+  static String? _getDefaultPackageForPlatform(YamlMap platformsYaml, String platformKey) {
+    if (!_supportsPlatform(platformsYaml, platformKey)) {
+      return null;
+    }
+    if ((platformsYaml[platformKey] as YamlMap).containsKey(kDefaultPackage)) {
+      return (platformsYaml[platformKey] as YamlMap)[kDefaultPackage] as String;
+    }
+    return null;
+  }
+
+  static String? _getPluginDartClassForPlatform(YamlMap platformsYaml, String platformKey) {
+    if (!_supportsPlatform(platformsYaml, platformKey)) {
+      return null;
+    }
+    if ((platformsYaml[platformKey] as YamlMap).containsKey(kDartPluginClass)) {
+      return (platformsYaml[platformKey] as YamlMap)[kDartPluginClass] as String;
+    }
+    return null;
+  }
+
+  static bool _providesImplementationForPlatform(YamlMap platformsYaml, String platformKey) {
+    if (!_supportsPlatform(platformsYaml, platformKey)) {
+      return false;
+    }
+    if ((platformsYaml[platformKey] as YamlMap).containsKey(kDefaultPackage)) {
       return false;
     }
     return true;
@@ -284,9 +367,45 @@ class Plugin {
   final String name;
   final String path;
 
+  /// The name of the interface package that this plugin implements.
+  /// If [null], this plugin doesn't implement an interface.
+  final String? implementsPackage;
+
   /// The name of the packages this plugin depends on.
   final List<String> dependencies;
 
   /// This is a mapping from platform config key to the plugin platform spec.
   final Map<String, PluginPlatform> platforms;
+
+  /// This is a mapping from platform config key to the default package implementation.
+  final Map<String, String> defaultPackagePlatforms;
+
+  /// This is a mapping from platform config key to the plugin class for the given platform.
+  final Map<String, String> pluginDartClassPlatforms;
+
+  /// Whether this plugin is a direct dependency of the app.
+  /// If [false], the plugin is a dependency of another plugin.
+  final bool isDirectDependency;
+}
+
+/// Metadata associated with the resolution of a platform interface of a plugin.
+class PluginInterfaceResolution {
+  PluginInterfaceResolution({
+    required this.plugin,
+    required this.platform,
+  }) : assert(plugin != null),
+       assert(platform != null);
+
+  /// The plugin.
+  final Plugin plugin;
+  // The name of the platform that this plugin implements.
+  final String platform;
+
+  Map<String, String> toMap() {
+    return <String, String> {
+      'pluginName': plugin.name,
+      'platform': platform,
+      'dartClass': plugin.pluginDartClassPlatforms[platform] ?? '',
+    };
+  }
 }

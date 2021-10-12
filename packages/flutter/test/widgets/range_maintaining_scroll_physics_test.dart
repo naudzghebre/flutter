@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class ExpandingBox extends StatefulWidget {
@@ -16,7 +16,7 @@ class ExpandingBox extends StatefulWidget {
   State<ExpandingBox> createState() => _ExpandingBoxState();
 }
 
-class _ExpandingBoxState extends State<ExpandingBox> with AutomaticKeepAliveClientMixin<ExpandingBox>{
+class _ExpandingBoxState extends State<ExpandingBox> with AutomaticKeepAliveClientMixin<ExpandingBox> {
   late double _height;
 
   @override
@@ -40,8 +40,8 @@ class _ExpandingBoxState extends State<ExpandingBox> with AutomaticKeepAliveClie
       child: Align(
         alignment: Alignment.bottomCenter,
         child: TextButton(
-          child: const Text('Collapse'),
           onPressed: toggleSize,
+          child: const Text('Collapse'),
         ),
       ),
     );
@@ -122,7 +122,7 @@ void main() {
     final TestGesture drag1 = await tester.startGesture(const Offset(10.0, 500.0));
     expect(await tester.pumpAndSettle(), 1); // Nothing to animate
     await drag1.moveTo(const Offset(10.0, 0.0));
-    expect(await tester.pumpAndSettle(), 1); // Nothing to animate
+    expect(await tester.pumpAndSettle(), 2); // Nothing to animate, only one semantics update
     await drag1.up();
     expect(await tester.pumpAndSettle(), 1); // Nothing to animate
     expect(position.pixels, moreOrLessEquals(500.0));
@@ -132,14 +132,14 @@ void main() {
     final TestGesture drag2 = await tester.startGesture(const Offset(10.0, 500.0));
     expect(await tester.pumpAndSettle(), 1); // Nothing to animate
     await drag2.moveTo(const Offset(10.0, 100.0));
-    expect(await tester.pumpAndSettle(), 1); // Nothing to animate
+    expect(await tester.pumpAndSettle(), 2); // Nothing to animate, only one semantics update
     expect(position.maxScrollExtent, 900.0);
     expect(position.pixels, lessThanOrEqualTo(900.0));
     expect(position.activity, isInstanceOf<DragScrollActivity>());
 
     final _ExpandingBoxState expandingBoxState = tester.state<_ExpandingBoxState>(find.byType(ExpandingBox));
     expandingBoxState.toggleSize();
-    expect(await tester.pumpAndSettle(), 1); // Nothing to animate
+    expect(await tester.pumpAndSettle(), 2); // Nothing to animate, only one semantics update
     expect(position.activity, isInstanceOf<DragScrollActivity>());
     expect(position.minScrollExtent, 0.0);
     expect(position.maxScrollExtent, 100.0);
@@ -150,7 +150,7 @@ void main() {
     expect(position.minScrollExtent, 0.0);
     expect(position.maxScrollExtent, 100.0);
     expect(position.pixels, 50.0);
-    expect(await tester.pumpAndSettle(), 1); // Nothing to animate
+    expect(await tester.pumpAndSettle(), 2); // Nothing to animate, only one semantics update
     expect(position.minScrollExtent, 0.0);
     expect(position.maxScrollExtent, 100.0);
     expect(position.pixels, 50.0);

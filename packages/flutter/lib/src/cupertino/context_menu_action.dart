@@ -45,7 +45,7 @@ class CupertinoContextMenuAction extends StatefulWidget {
   final IconData? trailingIcon;
 
   @override
-  _CupertinoContextMenuActionState createState() => _CupertinoContextMenuActionState();
+  State<CupertinoContextMenuAction> createState() => _CupertinoContextMenuActionState();
 }
 
 class _CupertinoContextMenuActionState extends State<CupertinoContextMenuAction> {
@@ -116,7 +116,7 @@ class _CupertinoContextMenuActionState extends State<CupertinoContextMenuAction>
             decoration: BoxDecoration(
               color: _isPressed ? _kBackgroundColorPressed : _kBackgroundColor,
               border: const Border(
-                bottom: BorderSide(width: 1.0, color: _kBackgroundColorPressed),
+                bottom: BorderSide(color: _kBackgroundColorPressed),
               ),
             ),
             padding: const EdgeInsets.symmetric(

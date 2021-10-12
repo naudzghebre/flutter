@@ -34,7 +34,7 @@ import 'constants.dart';
 /// class MyTabbedPage extends StatefulWidget {
 ///   const MyTabbedPage({ Key? key }) : super(key: key);
 ///   @override
-///   _MyTabbedPageState createState() => _MyTabbedPageState();
+///   State<MyTabbedPage> createState() => _MyTabbedPageState();
 /// }
 ///
 /// class _MyTabbedPageState extends State<MyTabbedPage> with SingleTickerProviderStateMixin {
@@ -84,56 +84,11 @@ import 'constants.dart';
 /// ```
 /// {@end-tool}
 ///
-/// {@tool dartpad --template=stateless_widget_material}
-///
+/// {@tool dartpad}
 /// This example shows how to listen to page updates in [TabBar] and [TabBarView]
 /// when using [DefaultTabController].
 ///
-/// ```dart preamble
-/// const List<Tab> tabs = <Tab>[
-///   Tab(text: 'Zeroth'),
-///   Tab(text: 'First'),
-///   Tab(text: 'Second'),
-/// ];
-/// ```
-///
-/// ```dart
-/// Widget build(BuildContext context) {
-///   return DefaultTabController(
-///     length: tabs.length,
-///     // The Builder widget is used to have a different BuildContext to access
-///     // closest DefaultTabController.
-///     child: Builder(
-///       builder: (BuildContext context) {
-///         final TabController tabController = DefaultTabController.of(context)!;
-///         tabController.addListener(() {
-///           if (!tabController.indexIsChanging) {
-///             // Your code goes here.
-///             // To get index of current tab use tabController.index
-///           }
-///         });
-///         return Scaffold(
-///           appBar: AppBar(
-///             bottom: const TabBar(
-///               tabs: tabs,
-///             ),
-///           ),
-///           body: TabBarView(
-///             children: tabs.map((Tab tab){
-///               return Center(
-///                 child: Text(
-///                   tab.text! + ' Tab',
-///                   style: Theme.of(context).textTheme.headline5,
-///                 ),
-///               );
-///             }).toList(),
-///           ),
-///         );
-///       }
-///     ),
-///   );
-/// }
-/// ```
+/// ** See code in examples/api/lib/material/tab_controller/tab_controller.1.dart **
 /// {@end-tool}
 ///
 class TabController extends ChangeNotifier {
@@ -416,7 +371,7 @@ class DefaultTabController extends StatefulWidget {
   }
 
   @override
-  _DefaultTabControllerState createState() => _DefaultTabControllerState();
+  State<DefaultTabController> createState() => _DefaultTabControllerState();
 }
 
 class _DefaultTabControllerState extends State<DefaultTabController> with SingleTickerProviderStateMixin {

@@ -257,6 +257,20 @@ void main() {
     expect(output, isEmpty);
   });
 
+  testWidgets('ListTile.divideTiles only runs the generator once', (WidgetTester tester) async {
+    // Regression test for https://github.com/flutter/flutter/pull/78879
+    int callCount = 0;
+    Iterable<Widget> generator() sync* {
+      callCount += 1;
+      yield const Text('');
+      yield const Text('');
+    }
+
+    final List<Widget> output = ListTile.divideTiles(tiles: generator(), color: Colors.grey).toList();
+    expect(output, hasLength(2));
+    expect(callCount, 1);
+  });
+
   testWidgets('ListTileTheme', (WidgetTester tester) async {
     final Key titleKey = UniqueKey();
     final Key subtitleKey = UniqueKey();
@@ -293,7 +307,7 @@ void main() {
                     title: TestText('title', key: titleKey),
                     subtitle: TestText('subtitle', key: subtitleKey),
                   );
-                }
+                },
               ),
             ),
           ),
@@ -440,10 +454,7 @@ void main() {
   testWidgets('ListTile contentPadding', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -485,10 +496,7 @@ void main() {
   testWidgets('ListTile contentPadding', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -532,10 +540,7 @@ void main() {
 
     Widget buildFrame(double leadingWidth, TextDirection textDirection) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -1168,7 +1173,6 @@ void main() {
               ListTile(
                 title: Text('A', key: childKey),
                 dense: true,
-                enabled: true,
                 onTap: () {},
               ),
             ],
@@ -1216,7 +1220,6 @@ void main() {
               ListTile(
                 title: Text('A', key: childKey),
                 dense: true,
-                enabled: true,
                 autofocus: true,
                 onTap: () {},
               ),
@@ -1284,10 +1287,12 @@ void main() {
       paints
         ..rect(
             color: Colors.orange[500],
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0))
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          )
         ..rect(
             color: const Color(0xffffffff),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0)),
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          ),
     );
 
     // Check when the list tile is disabled.
@@ -1299,7 +1304,8 @@ void main() {
       paints
         ..rect(
             color: const Color(0xffffffff),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0)),
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          ),
     );
   });
 
@@ -1334,10 +1340,12 @@ void main() {
       paints
         ..rect(
             color: const Color(0x1f000000),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0))
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          )
         ..rect(
             color: const Color(0xffffffff),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0)),
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          ),
     );
 
     // Start hovering
@@ -1353,13 +1361,16 @@ void main() {
       paints
         ..rect(
             color: const Color(0x1f000000),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0))
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          )
         ..rect(
             color: Colors.orange[500],
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0))
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          )
         ..rect(
             color: const Color(0xffffffff),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0)),
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          ),
     );
 
     await tester.pumpWidget(buildApp(enabled: false));
@@ -1370,10 +1381,12 @@ void main() {
       paints
         ..rect(
             color: Colors.orange[500],
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0))
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          )
         ..rect(
             color: const Color(0xffffffff),
-            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0)),
+            rect: const Rect.fromLTRB(350.0, 250.0, 450.0, 350.0),
+          ),
     );
   });
 
@@ -1393,7 +1406,7 @@ void main() {
                 child: ListTile(
                   key: tileKey,
                   onTap: enabled ? () {
-                    setState((){
+                    setState(() {
                       tapped = true;
                     });
                   } : null,
@@ -1706,7 +1719,7 @@ void main() {
     expect(find.byType(Material), paints..path(color: defaultColor));
   });
 
-  testWidgets('ListTile respects ListTileTheme\'s tileColor & selectedTileColor', (WidgetTester tester) async {
+  testWidgets("ListTile respects ListTileTheme's tileColor & selectedTileColor", (WidgetTester tester) async {
     late ListTileTheme theme;
     bool isSelected = false;
 
@@ -1744,7 +1757,7 @@ void main() {
     expect(find.byType(Material), paints..path(color: theme.selectedTileColor));
   });
 
-  testWidgets('ListTileTheme\'s tileColor & selectedTileColor are overridden by ListTile properties', (WidgetTester tester) async {
+  testWidgets("ListTileTheme's tileColor & selectedTileColor are overridden by ListTile properties", (WidgetTester tester) async {
     bool isSelected = false;
     final Color tileColor = Colors.green.shade500;
     final Color selectedTileColor = Colors.red.shade500;
@@ -1930,10 +1943,7 @@ void main() {
   testWidgets('ListTile horizontalTitleGap = 0.0', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection, { double? themeHorizontalTitleGap, double? widgetHorizontalTitleGap }) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -1985,10 +1995,7 @@ void main() {
   testWidgets('ListTile horizontalTitleGap = (default) && ListTile minLeadingWidth = (default)', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -2024,13 +2031,10 @@ void main() {
   testWidgets('ListTile horizontalTitleGap with visualDensity', (WidgetTester tester) async {
     Widget buildFrame({
       double? horizontalTitleGap,
-      VisualDensity? visualDensity
+      VisualDensity? visualDensity,
     }) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: TextDirection.ltr,
           child: Material(
@@ -2072,10 +2076,7 @@ void main() {
   testWidgets('ListTile minVerticalPadding = 80.0', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection, { double? themeMinVerticalPadding, double? widgetMinVerticalPadding }) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -2121,10 +2122,7 @@ void main() {
   testWidgets('ListTile minLeadingWidth = 60.0', (WidgetTester tester) async {
     Widget buildFrame(TextDirection textDirection, { double? themeMinLeadingWidth, double? widgetMinLeadingWidth }) {
       return MediaQuery(
-        data: const MediaQueryData(
-          padding: EdgeInsets.zero,
-          textScaleFactor: 1.0,
-        ),
+        data: const MediaQueryData(),
         child: Directionality(
           textDirection: textDirection,
           child: Material(
@@ -2302,7 +2300,6 @@ void main() {
         home: Material(
           child: Center(
             child: ListTile(
-              enabled: true,
               selected: selected,
               leading: TestIcon(key: leadingKey),
               trailing: TestIcon(key: trailingKey),

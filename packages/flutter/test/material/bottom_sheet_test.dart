@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 import '../widgets/semantics_tester.dart';
 
@@ -22,6 +23,33 @@ void main() {
     // If the animation were linear, these two values would be the same.
     expect(dyDelta1, isNot(moreOrLessEquals(dyDelta2, epsilon: 0.1)));
   }
+
+  testWidgets('Throw if enable drag without an animation controller', (WidgetTester tester) async {
+    // Regression test for https://github.com/flutter/flutter/issues/89168
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BottomSheet(
+          onClosing: () {},
+          builder: (_) => Container(
+            height: 200,
+            color: Colors.red,
+            child: const Text('BottomSheet'),
+          ),
+        ),
+      ),
+    );
+
+    final FlutterExceptionHandler? handler = FlutterError.onError;
+    FlutterErrorDetails? error;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      error = details;
+    };
+
+    await tester.drag(find.text('BottomSheet'), const Offset(0.0, 150.0));
+
+    expect(error, isNotNull);
+    FlutterError.onError = handler;
+  });
 
   testWidgets('Tapping on a modal BottomSheet should not dismiss it', (WidgetTester tester) async {
     late BuildContext savedContext;
@@ -527,7 +555,7 @@ void main() {
     final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
     const Color color = Colors.pink;
     const double elevation = 9.0;
-    final ShapeBorder shape = BeveledRectangleBorder(borderRadius: BorderRadius.circular(12));
+    const ShapeBorder shape = BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)));
     const Clip clipBehavior = Clip.antiAlias;
     const Color barrierColor = Colors.red;
 
@@ -687,11 +715,9 @@ void main() {
     expect(tester.getBottomLeft(find.byType(BottomSheet)).dy, 600.0);
   });
 
-  testWidgets('Verify that route settings can be set in the showModalBottomSheet',
-      (WidgetTester tester) async {
+  testWidgets('Verify that route settings can be set in the showModalBottomSheet', (WidgetTester tester) async {
     final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
-    const RouteSettings routeSettings =
-        RouteSettings(name: 'route_name', arguments: 'route_argument');
+    const RouteSettings routeSettings = RouteSettings(name: 'route_name', arguments: 'route_argument');
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -773,6 +799,69 @@ void main() {
     expect(find.text('BottomSheet'), findsNothing);
   });
 
+  // Regression test for https://github.com/flutter/flutter/issues/87592
+  testWidgets('the framework do not dispose the transitionAnimationController provided by user.', (WidgetTester tester) async {
+    const Key tapTarget = Key('tap-target');
+    final AnimationController controller = AnimationController(
+      vsync: const TestVSync(),
+      duration: const Duration(seconds: 2),
+      reverseDuration: const Duration(seconds: 2),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (BuildContext context) {
+            return GestureDetector(
+              key: tapTarget,
+              onTap: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  // The default duration and reverseDuration is 1 second
+                  transitionAnimationController: controller,
+                  builder: (BuildContext context) {
+                    return const Text('BottomSheet');
+                  },
+                );
+              },
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox(
+                height: 100.0,
+                width: 100.0,
+              ),
+            );
+          },
+        ),
+      ),
+    ));
+
+    expect(find.text('BottomSheet'), findsNothing);
+
+    await tester.tap(find.byKey(tapTarget)); // Opening animation will start after tapping
+    await tester.pump();
+
+    expect(find.text('BottomSheet'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 2000));
+    expect(find.text('BottomSheet'), findsOneWidget);
+
+    // Tapping above the bottom sheet to dismiss it.
+    await tester.tapAt(const Offset(20.0, 20.0)); // Closing animation will start after tapping
+    await tester.pump();
+
+    expect(find.text('BottomSheet'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 2000));
+    // The bottom sheet should still be present at the very end of the animation.
+    expect(find.text('BottomSheet'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    // The bottom sheet should not be showing any longer.
+    expect(find.text('BottomSheet'), findsNothing);
+
+    controller.dispose();
+    // Double disposal will throw.
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Verify persistence BottomSheet use AnimationController if provided.', (WidgetTester tester) async {
     const Key tapTarget = Key('tap-target');
     const Key tapTargetToClose = Key('tap-target-to-close');
@@ -793,9 +882,9 @@ void main() {
                   ),
                   builder: (BuildContext context) {
                     return MaterialButton(
-                      child: const Text('BottomSheet'),
                       onPressed: () => Navigator.pop(context),
                       key: tapTargetToClose,
+                      child: const Text('BottomSheet'),
                     );
                   },
                 );
@@ -832,6 +921,342 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     // The bottom sheet should not be showing any longer.
     expect(find.text('BottomSheet'), findsNothing);
+  });
+
+  // Regression test for https://github.com/flutter/flutter/issues/87708
+  testWidgets('Each of the internal animation controllers should be disposed by the framework.', (WidgetTester tester) async {
+    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        key: scaffoldKey,
+        body: const Center(child: Text('body')),
+      ),
+    ));
+
+    scaffoldKey.currentState!.showBottomSheet<void>((_) {
+      return Builder(
+        builder: (BuildContext context) {
+          return Container(height: 200.0);
+        },
+      );
+    });
+
+    await tester.pump();
+    expect(find.byType(BottomSheet), findsOneWidget);
+
+    // The first sheet's animation is still running.
+
+    // Trigger the second sheet will remove the first sheet from tree.
+    scaffoldKey.currentState!.showBottomSheet<void>((_) {
+      return Builder(
+        builder: (BuildContext context) {
+          return Container(height: 200.0);
+        },
+      );
+    });
+    await tester.pump();
+    expect(find.byType(BottomSheet), findsOneWidget);
+
+    // Remove the Scaffold from the tree.
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    // If the internal animation controller do not dispose will throw
+    // FlutterError:<ScaffoldState#1981a(tickers: tracking 1 ticker) was disposed with an active
+    // Ticker.
+    expect(tester.takeException(), isNull);
+  });
+
+  // Regression test for https://github.com/flutter/flutter/issues/87708
+  testWidgets('The framework does not dispose of the transitionAnimationController provided by user.', (WidgetTester tester) async {
+    const Key tapTarget = Key('tap-target');
+    const Key tapTargetToClose = Key('tap-target-to-close');
+    final AnimationController controller = AnimationController(
+      vsync: const TestVSync(),
+      duration: const Duration(seconds: 2),
+      reverseDuration: const Duration(seconds: 2),
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (BuildContext context) {
+            return GestureDetector(
+              key: tapTarget,
+              onTap: () {
+                showBottomSheet<void>(
+                  context: context,
+                  transitionAnimationController: controller,
+                  builder: (BuildContext context) {
+                    return MaterialButton(
+                      onPressed: () => Navigator.pop(context),
+                      key: tapTargetToClose,
+                      child: const Text('BottomSheet'),
+                    );
+                  },
+                );
+              },
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox(
+                height: 100.0,
+                width: 100.0,
+              ),
+            );
+          },
+        ),
+      ),
+    ));
+
+    expect(find.text('BottomSheet'), findsNothing);
+
+    await tester.tap(find.byKey(tapTarget)); // Open the sheet.
+    await tester.pumpAndSettle(); // Finish the animation.
+    expect(find.text('BottomSheet'), findsOneWidget);
+
+    // Tapping button on the bottom sheet to dismiss it.
+    await tester.tap(find.byKey(tapTargetToClose)); // Closing the sheet.
+    await tester.pumpAndSettle(); // Finish the animation.
+    expect(find.text('BottomSheet'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+
+    // Double dispose will throw.
+    expect(tester.takeException(), isNull);
+  });
+
+  group('constraints', () {
+
+    testWidgets('No constraints by default for bottomSheet property', (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+          body: Center(child: Text('body')),
+          bottomSheet: Text('BottomSheet'),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(0, 586, 154, 600),
+      );
+    });
+
+    testWidgets('No constraints by default for showBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  Scaffold.of(context).showBottomSheet<void>(
+                    (BuildContext context) => const Text('BottomSheet'),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(0, 586, 154, 600),
+      );
+    });
+
+    testWidgets('No constraints by default for showModalBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (BuildContext context) => const Text('BottomSheet'),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(0, 586, 800, 600),
+      );
+    });
+
+    testWidgets('Theme constraints used for bottomSheet property', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(
+          bottomSheetTheme: const BottomSheetThemeData(
+            constraints: BoxConstraints(maxWidth: 80),
+          ),
+        ),
+        home: Scaffold(
+          body: const Center(child: Text('body')),
+          bottomSheet: const Text('BottomSheet'),
+          floatingActionButton: FloatingActionButton(onPressed: () {}, child: const Icon(Icons.add)),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsOneWidget);
+      // Should be centered and only 80dp wide
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(360, 558, 440, 600),
+      );
+      // Ensure the FAB is overlapping the top of the sheet
+      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(
+        tester.getRect(find.byIcon(Icons.add)),
+        const Rect.fromLTRB(744, 544, 768, 568),
+      );
+    });
+
+    testWidgets('Theme constraints used for showBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(
+          bottomSheetTheme: const BottomSheetThemeData(
+            constraints: BoxConstraints(maxWidth: 80),
+          ),
+        ),
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  Scaffold.of(context).showBottomSheet<void>(
+                    (BuildContext context) => const Text('BottomSheet'),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      // Should be centered and only 80dp wide
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(360, 558, 440, 600),
+      );
+    });
+
+    testWidgets('Theme constraints used for showModalBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(
+          bottomSheetTheme: const BottomSheetThemeData(
+            constraints: BoxConstraints(maxWidth: 80),
+          ),
+        ),
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (BuildContext context) => const Text('BottomSheet'),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      // Should be centered and only 80dp wide
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(360, 558, 440, 600),
+      );
+    });
+
+    testWidgets('constraints param overrides theme for showBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(
+          bottomSheetTheme: const BottomSheetThemeData(
+            constraints: BoxConstraints(maxWidth: 80),
+          ),
+        ),
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  Scaffold.of(context).showBottomSheet<void>(
+                    (BuildContext context) => const Text('BottomSheet'),
+                    constraints: const BoxConstraints(maxWidth: 100),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      // Should be centered and only 100dp wide instead of 80dp wide
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(350, 572, 450, 600),
+      );
+    });
+
+    testWidgets('constraints param overrides theme for showModalBottomSheet', (WidgetTester tester) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(
+          bottomSheetTheme: const BottomSheetThemeData(
+            constraints: BoxConstraints(maxWidth: 80),
+          ),
+        ),
+        home: Scaffold(
+          body: Builder(builder: (BuildContext context) {
+            return Center(
+              child: ElevatedButton(
+                child: const Text('Press me'),
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (BuildContext context) => const Text('BottomSheet'),
+                    constraints: const BoxConstraints(maxWidth: 100),
+                  );
+                },
+              ),
+            );
+          }),
+        ),
+      ));
+      expect(find.text('BottomSheet'), findsNothing);
+      await tester.tap(find.text('Press me'));
+      await tester.pumpAndSettle();
+      expect(find.text('BottomSheet'), findsOneWidget);
+      // Should be centered and only 100dp instead of 80dp wide
+      expect(
+        tester.getRect(find.text('BottomSheet')),
+        const Rect.fromLTRB(350, 572, 450, 600),
+      );
+    });
+
   });
 }
 

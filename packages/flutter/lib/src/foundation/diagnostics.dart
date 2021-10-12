@@ -32,7 +32,7 @@ enum DiagnosticLevel {
   /// the diagnostics to be formatted consistently with other diagnostics and
   /// they should expect them to sometimes be misleading. For example,
   /// [FlagProperty] and [ObjectFlagProperty] have uglier formatting when the
-  /// property `value` does does not match a value with a custom flag
+  /// property `value` does not match a value with a custom flag
   /// description. An example of a misleading diagnostic is a diagnostic for
   /// a property that has no effect because some other property of the object is
   /// set in a way that causes the hidden property to have no effect.
@@ -643,7 +643,6 @@ final TextTreeConfiguration whitespaceTextConfiguration = TextTreeConfiguration(
   prefixLastChildLineOne: '',
   prefixOtherLines: ' ',
   prefixOtherLinesRootNode: '  ',
-  bodyIndent: '',
   propertyPrefixIfChildren: '',
   propertyPrefixNoChildren: '',
   linkCharacter: ' ',
@@ -678,7 +677,6 @@ final TextTreeConfiguration flatTextConfiguration = TextTreeConfiguration(
   prefixLastChildLineOne: '',
   prefixOtherLines: '',
   prefixOtherLinesRootNode: '',
-  bodyIndent: '',
   propertyPrefixIfChildren: '',
   propertyPrefixNoChildren: '',
   linkCharacter: '',
@@ -733,7 +731,6 @@ final TextTreeConfiguration errorPropertyTextConfiguration = TextTreeConfigurati
   prefixLineOne: '',
   prefixOtherLines: '',
   prefixLastChildLineOne: '',
-  lineBreak: '\n',
   lineBreakProperties: false,
   addBlankLineIfNoChildren: false,
   showChildren: false,
@@ -741,7 +738,6 @@ final TextTreeConfiguration errorPropertyTextConfiguration = TextTreeConfigurati
   propertyPrefixNoChildren: '  ',
   linkCharacter: '',
   prefixOtherLinesRootNode: '',
-  afterName: ':',
   isNameOnOwnLine: true,
 );
 
@@ -761,7 +757,6 @@ final TextTreeConfiguration shallowTextConfiguration = TextTreeConfiguration(
   prefixLastChildLineOne: '',
   prefixOtherLines: ' ',
   prefixOtherLinesRootNode: '  ',
-  bodyIndent: '',
   propertyPrefixIfChildren: '',
   propertyPrefixNoChildren: '',
   linkCharacter: ' ',
@@ -850,7 +845,7 @@ class _PrefixedStringBuilder {
       _wrappableRanges,
       wrapWidth!,
       startOffset: firstLine ? prefixLineOne.length : _prefixOtherLines!.length,
-      otherLineOffset: firstLine ? _prefixOtherLines!.length : _prefixOtherLines!.length,
+      otherLineOffset: _prefixOtherLines!.length,
     );
     int i = 0;
     final int length = lines.length;
@@ -1009,7 +1004,7 @@ class _PrefixedStringBuilder {
   }
 
   String? _getCurrentPrefix(bool firstLine) {
-    return _buffer.isEmpty ? prefixLineOne : (firstLine ? _prefixOtherLines : _prefixOtherLines);
+    return _buffer.isEmpty ? prefixLineOne : _prefixOtherLines;
   }
 
   /// Write lines assuming the lines obey the specified prefixes. Ensures that
@@ -1059,7 +1054,7 @@ class _NoDefaultValue {
 }
 
 /// Marker object indicating that a [DiagnosticsNode] has no default value.
-const _NoDefaultValue kNoDefaultValue = _NoDefaultValue();
+const Object kNoDefaultValue = _NoDefaultValue();
 
 bool _isSingleLine(DiagnosticsTreeStyle? style) {
   return style == DiagnosticsTreeStyle.singleLine;
@@ -1310,7 +1305,7 @@ class TextTreeRenderer {
         if (propertyLines.length == 1 && !config.lineBreakProperties) {
           builder.write(propertyLines.first);
         } else {
-          builder.write(propertyRender, allowWrap: false);
+          builder.write(propertyRender);
           if (!propertyRender.endsWith('\n'))
             builder.write('\n');
         }
@@ -1740,7 +1735,6 @@ abstract class DiagnosticsNode {
       result = TextTreeRenderer(
         minLevel: minLevel,
         wrapWidth: 65,
-        wrapWidthProperties: 65,
       ).render(
         this,
         prefixLineOne: prefixLineOne,
@@ -2032,6 +2026,7 @@ class IntProperty extends _NumProperty<int> {
     showName: showName,
     unit: unit,
     defaultValue: defaultValue,
+    style: style,
     level: level,
   );
 
@@ -2549,7 +2544,7 @@ class FlagsSummary<T> extends DiagnosticsProperty<Map<String, T?>> {
   //
   // For a non-null value, its description is its key.
   //
-  // For a null value, it is omitted unless `includeEmtpy` is true and
+  // For a null value, it is omitted unless `includeEmpty` is true and
   // [ifEntryNull] contains a corresponding description.
   Iterable<String> _formattedValues() sync* {
     for (final MapEntry<String, T?> entry in value.entries) {

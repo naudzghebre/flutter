@@ -2,12 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
 
-class TestLeftIntent extends Intent {}
-class TestRightIntent extends Intent {}
+class TestLeftIntent extends Intent {
+  const TestLeftIntent();
+}
+class TestRightIntent extends Intent {
+  const TestRightIntent();
+}
 
 void main() {
   testWidgets('DoNothingAndStopPropagationTextIntent', (WidgetTester tester) async {
@@ -25,13 +29,13 @@ void main() {
         body: Builder(
           builder: (BuildContext context) {
             return Shortcuts(
-              shortcuts: <LogicalKeySet, Intent>{
-                LogicalKeySet(LogicalKeyboardKey.arrowLeft): TestLeftIntent(),
-                LogicalKeySet(LogicalKeyboardKey.arrowRight): TestRightIntent(),
+              shortcuts: const <ShortcutActivator, Intent>{
+                SingleActivator(LogicalKeyboardKey.arrowLeft): TestLeftIntent(),
+                SingleActivator(LogicalKeyboardKey.arrowRight): TestRightIntent(),
               },
               child: Shortcuts(
-                shortcuts: <LogicalKeySet, Intent>{
-                  LogicalKeySet(LogicalKeyboardKey.arrowRight): const DoNothingAndStopPropagationTextIntent(),
+                shortcuts: const <ShortcutActivator, Intent>{
+                  SingleActivator(LogicalKeyboardKey.arrowRight): DoNothingAndStopPropagationTextIntent(),
                 },
                 child: Actions(
                   // These Actions intercept default Intents, set a flag that they
@@ -50,7 +54,7 @@ void main() {
                         EditableText(
                           controller: controller,
                           focusNode: focusNodeTarget,
-                          style: Typography.material2018(platform: TargetPlatform.android).black.subtitle1!,
+                          style: Typography.material2018().black.subtitle1!,
                           cursorColor: Colors.blue,
                           backgroundCursorColor: Colors.grey,
                         ),
@@ -110,5 +114,5 @@ void main() {
     await tester.pump();
     expect(leftCalled, isFalse);
     expect(rightCalled, isTrue);
-  });
+  }, variant: KeySimulatorTransitModeVariant.all());
 }

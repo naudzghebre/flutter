@@ -21,7 +21,6 @@ final Platform macPlatform = FakePlatform(
   environment: <String, String>{'HOME': '/foo/bar'}
 );
 final Platform linuxPlatform = FakePlatform(
-  operatingSystem: 'linux',
   environment: <String, String>{
     'HOME': '/foo/bar'
   },
@@ -68,8 +67,8 @@ void main() {
     final Directory installedDirectory = fileSystem.directory(installPath);
     installedDirectory.createSync(recursive: true);
     // Create plugin JAR file for Flutter and Dart plugin.
-    createIntellijFlutterPluginJar(pluginPath + '/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
-    createIntellijDartPluginJar(pluginPath + '/Dart/lib/Dart.jar', fileSystem);
+    createIntellijFlutterPluginJar('$pluginPath/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
+    createIntellijDartPluginJar('$pluginPath/Dart/lib/Dart.jar', fileSystem);
 
     final Iterable<DoctorValidator> installed = IntelliJValidatorOnLinux.installed(
       fileSystem: fileSystem,
@@ -95,8 +94,8 @@ void main() {
     final Directory installedDirectory = fileSystem.directory(installPath);
     installedDirectory.createSync(recursive: true);
     // Create plugin JAR file for Flutter and Dart plugin.
-    createIntellijFlutterPluginJar(pluginPath + '/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
-    createIntellijDartPluginJar(pluginPath + '/Dart/lib/Dart.jar', fileSystem);
+    createIntellijFlutterPluginJar('$pluginPath/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
+    createIntellijDartPluginJar('$pluginPath/Dart/lib/Dart.jar', fileSystem);
 
     final Iterable<DoctorValidator> installed = IntelliJValidatorOnLinux.installed(
       fileSystem: fileSystem,
@@ -122,8 +121,8 @@ void main() {
     final Directory installedDirectory = fileSystem.directory(installPath);
     installedDirectory.createSync(recursive: true);
     // Create plugin JAR file for Flutter and Dart plugin.
-    createIntellijFlutterPluginJar(pluginPath + '/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
-    createIntellijDartPluginJar(pluginPath + '/Dart/lib/Dart.jar', fileSystem);
+    createIntellijFlutterPluginJar('$pluginPath/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
+    createIntellijDartPluginJar('$pluginPath/Dart/lib/Dart.jar', fileSystem);
 
     final Iterable<DoctorValidator> installed = IntelliJValidatorOnLinux.installed(
       fileSystem: fileSystem,
@@ -149,8 +148,8 @@ void main() {
     final Directory installedDirectory = fileSystem.directory(installPath);
     installedDirectory.createSync(recursive: true);
     // Create plugin JAR file for Flutter and Dart plugin.
-    createIntellijFlutterPluginJar(pluginPath + '/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
-    createIntellijDartPluginJar(pluginPath + '/Dart/lib/Dart.jar', fileSystem);
+    createIntellijFlutterPluginJar('$pluginPath/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
+    createIntellijDartPluginJar('$pluginPath/Dart/lib/Dart.jar', fileSystem);
 
     final Iterable<DoctorValidator> installed = IntelliJValidatorOnLinux.installed(
       fileSystem: fileSystem,
@@ -175,8 +174,8 @@ void main() {
         .writeAsStringSync(installPath, flush: true);
     final Directory installedDirectory = fileSystem.directory(installPath);
     installedDirectory.createSync(recursive: true);
-    createIntellijFlutterPluginJar(pluginPath + '/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
-    createIntellijDartPluginJar(pluginPath + '/Dart/lib/Dart.jar', fileSystem);
+    createIntellijFlutterPluginJar('$pluginPath/flutter-intellij/lib/flutter-intellij.jar', fileSystem, version: '50.0');
+    createIntellijDartPluginJar('$pluginPath/Dart/lib/Dart.jar', fileSystem);
 
     final Iterable<DoctorValidator> installed = IntelliJValidatorOnWindows.installed(
       fileSystem: fileSystem,
@@ -314,9 +313,9 @@ void main() {
     expect(ce.title, 'IntelliJ IDEA Community Edition');
     expect(ce.installPath, ceRandomLocation);
 
-    final IntelliJValidatorOnMac utlimate = validators.where((IntelliJValidatorOnMac validator) => validator.id == 'IntelliJIdea').single;
-    expect(utlimate.title, 'IntelliJ IDEA Ultimate Edition');
-    expect(utlimate.installPath, ultimateRandomLocation);
+    final IntelliJValidatorOnMac ultimate = validators.where((IntelliJValidatorOnMac validator) => validator.id == 'IntelliJIdea').single;
+    expect(ultimate.title, 'IntelliJ IDEA Ultimate Edition');
+    expect(ultimate.installPath, ultimateRandomLocation);
   });
 
   testWithoutContext('Intellij plugins path checking on mac', () async {

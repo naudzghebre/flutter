@@ -8,7 +8,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart';
 
 import 'basic.dart';
@@ -330,6 +329,7 @@ class Image extends StatefulWidget {
     this.width,
     this.height,
     this.color,
+    this.opacity,
     this.colorBlendMode,
     this.fit,
     this.alignment = Alignment.center,
@@ -389,6 +389,7 @@ class Image extends StatefulWidget {
     this.width,
     this.height,
     this.color,
+    this.opacity,
     this.colorBlendMode,
     this.fit,
     this.alignment = Alignment.center,
@@ -451,6 +452,7 @@ class Image extends StatefulWidget {
     this.width,
     this.height,
     this.color,
+    this.opacity,
     this.colorBlendMode,
     this.fit,
     this.alignment = Alignment.center,
@@ -612,6 +614,7 @@ class Image extends StatefulWidget {
     this.width,
     this.height,
     this.color,
+    this.opacity,
     this.colorBlendMode,
     this.fit,
     this.alignment = Alignment.center,
@@ -681,6 +684,7 @@ class Image extends StatefulWidget {
     this.width,
     this.height,
     this.color,
+    this.opacity,
     this.colorBlendMode,
     this.fit,
     this.alignment = Alignment.center,
@@ -752,40 +756,14 @@ class Image extends StatefulWidget {
   /// ```
   /// {@endtemplate}
   ///
-  /// {@tool dartpad --template=stateless_widget_material}
-  ///
+  /// {@tool dartpad}
   /// The following sample demonstrates how to use this builder to implement an
   /// image that fades in once it's been loaded.
   ///
   /// This sample contains a limited subset of the functionality that the
   /// [FadeInImage] widget provides out of the box.
   ///
-  /// ```dart
-  /// @override
-  /// Widget build(BuildContext context) {
-  ///   return DecoratedBox(
-  ///     decoration: BoxDecoration(
-  ///       color: Colors.white,
-  ///       border: Border.all(),
-  ///       borderRadius: BorderRadius.circular(20),
-  ///     ),
-  ///     child: Image.network(
-  ///       'https://flutter.github.io/assets-for-api-docs/assets/widgets/puffin.jpg',
-  ///       frameBuilder: (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
-  ///         if (wasSynchronouslyLoaded) {
-  ///           return child;
-  ///         }
-  ///         return AnimatedOpacity(
-  ///           child: child,
-  ///           opacity: frame == null ? 0 : 1,
-  ///           duration: const Duration(seconds: 1),
-  ///           curve: Curves.easeOut,
-  ///         );
-  ///       },
-  ///     ),
-  ///   );
-  /// }
-  /// ```
+  /// ** See code in examples/api/lib/widgets/image/image.frame_builder.0.dart **
   /// {@end-tool}
   final ImageFrameBuilder? frameBuilder;
 
@@ -818,37 +796,11 @@ class Image extends StatefulWidget {
   ///
   /// {@macro flutter.widgets.Image.frameBuilder.chainedBuildersExample}
   ///
-  /// {@tool dartpad --template=stateless_widget_material}
-  ///
+  /// {@tool dartpad}
   /// The following sample uses [loadingBuilder] to show a
   /// [CircularProgressIndicator] while an image loads over the network.
   ///
-  /// ```dart
-  /// Widget build(BuildContext context) {
-  ///   return DecoratedBox(
-  ///     decoration: BoxDecoration(
-  ///       color: Colors.white,
-  ///       border: Border.all(),
-  ///       borderRadius: BorderRadius.circular(20),
-  ///     ),
-  ///     child: Image.network(
-  ///       'https://example.com/image.jpg',
-  ///       loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-  ///         if (loadingProgress == null) {
-  ///           return child;
-  ///         }
-  ///         return Center(
-  ///           child: CircularProgressIndicator(
-  ///             value: loadingProgress.expectedTotalBytes != null
-  ///                 ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-  ///                 : null,
-  ///           ),
-  ///         );
-  ///       },
-  ///     ),
-  ///   );
-  /// }
-  /// ```
+  /// ** See code in examples/api/lib/widgets/image/image.loading_builder.0.dart **
   /// {@end-tool}
   ///
   /// Run against a real-world image on a slow network, the previous example
@@ -864,34 +816,11 @@ class Image extends StatefulWidget {
   /// [FlutterError.onError]. If it is provided, the caller should either handle
   /// the exception by providing a replacement widget, or rethrow the exception.
   ///
-  /// {@tool dartpad --template=stateless_widget_material}
-  ///
+  /// {@tool dartpad}
   /// The following sample uses [errorBuilder] to show a '😢' in place of the
   /// image that fails to load, and prints the error to the console.
   ///
-  /// ```dart
-  /// Widget build(BuildContext context) {
-  ///   return DecoratedBox(
-  ///     decoration: BoxDecoration(
-  ///       color: Colors.white,
-  ///       border: Border.all(),
-  ///       borderRadius: BorderRadius.circular(20),
-  ///     ),
-  ///     child: Image.network(
-  ///       'https://example.does.not.exist/image.jpg',
-  ///       errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-  ///         // Appropriate logging or analytics, e.g.
-  ///         // myAnalytics.recordError(
-  ///         //   'An error occurred loading "https://example.does.not.exist/image.jpg"',
-  ///         //   exception,
-  ///         //   stackTrace,
-  ///         // );
-  ///         return const Text('😢');
-  ///       },
-  ///     ),
-  ///   );
-  /// }
-  /// ```
+  /// ** See code in examples/api/lib/widgets/image/image.error_builder.0.dart **
   /// {@end-tool}
   final ImageErrorWidgetBuilder? errorBuilder;
 
@@ -921,6 +850,20 @@ class Image extends StatefulWidget {
 
   /// If non-null, this color is blended with each image pixel using [colorBlendMode].
   final Color? color;
+
+  /// If non-null, the value from the [Animation] is multiplied with the opacity
+  /// of each image pixel before painting onto the canvas.
+  ///
+  /// This is more efficient than using [FadeTransition] to change the opacity
+  /// of an image, since this avoids creating a new composited layer. Composited
+  /// layers may double memory usage as the image is painted onto an offscreen
+  /// render target.
+  ///
+  /// See also:
+  ///
+  ///  * [AlwaysStoppedAnimation], which allows you to create an [Animation]
+  ///    from a single opacity value.
+  final Animation<double>? opacity;
 
   /// The rendering quality of the image.
   ///
@@ -1060,7 +1003,7 @@ class Image extends StatefulWidget {
   final bool isAntiAlias;
 
   @override
-  _ImageState createState() => _ImageState();
+  State<Image> createState() => _ImageState();
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
@@ -1071,6 +1014,7 @@ class Image extends StatefulWidget {
     properties.add(DoubleProperty('width', width, defaultValue: null));
     properties.add(DoubleProperty('height', height, defaultValue: null));
     properties.add(ColorProperty('color', color, defaultValue: null));
+    properties.add(DiagnosticsProperty<Animation<double>?>('opacity', opacity, defaultValue: null));
     properties.add(EnumProperty<BlendMode>('colorBlendMode', colorBlendMode, defaultValue: null));
     properties.add(EnumProperty<BoxFit>('fit', fit, defaultValue: null));
     properties.add(DiagnosticsProperty<AlignmentGeometry>('alignment', alignment, defaultValue: null));
@@ -1188,8 +1132,10 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
                   _lastStack = stackTrace;
                 });
                 assert(() {
-                  if (widget.errorBuilder == null)
+                  if (widget.errorBuilder == null) {
+                    // ignore: only_throw_errors, since we're just proxying the error.
                     throw error; // Ensures the error message is printed to the console.
+                  }
                   return true;
                 }());
               }
@@ -1326,6 +1272,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       height: widget.height,
       scale: _imageInfo?.scale ?? 1.0,
       color: widget.color,
+      opacity: widget.opacity,
       colorBlendMode: widget.colorBlendMode,
       fit: widget.fit,
       alignment: widget.alignment,

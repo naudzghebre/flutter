@@ -337,8 +337,7 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('IconButton with explicit splash radius',
-      (WidgetTester tester) async {
+  testWidgets('IconButton with explicit splash radius', (WidgetTester tester) async {
     const double splashRadius = 30.0;
     await tester.pumpWidget(
       MaterialApp(
@@ -362,7 +361,7 @@ void main() {
     expect(
       Material.of(tester.element(find.byType(IconButton))),
       paints
-        ..circle(radius: splashRadius)
+        ..circle(radius: splashRadius),
     );
 
     await gesture.up();
@@ -571,7 +570,6 @@ void main() {
           child: Center(
             child: IconButton(
               onPressed: () {},
-              enableFeedback: true,
               icon: const Icon(Icons.link),
             ),
           ),
@@ -680,6 +678,72 @@ void main() {
     );
 
     expect(RendererBinding.instance!.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.click);
+  });
+
+  testWidgets('disabled IconButton has forbidden mouse cursor', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const Material(
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: IconButton(
+              onPressed: null, // null value indicates IconButton is disabled
+              icon: Icon(Icons.play_arrow),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final TestGesture gesture = await tester.createGesture(kind: PointerDeviceKind.mouse, pointer: 1);
+    await gesture.addPointer(location: tester.getCenter(find.byType(IconButton)));
+    addTearDown(gesture.removePointer);
+
+    await tester.pump();
+
+    expect(RendererBinding.instance!.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.forbidden);
+  });
+
+  testWidgets('IconButton.mouseCursor overrides implicit setting of mouse cursor', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const Material(
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: IconButton(
+              onPressed: null,
+              mouseCursor: SystemMouseCursors.none,
+              icon: Icon(Icons.play_arrow),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final TestGesture gesture = await tester.createGesture(kind: PointerDeviceKind.mouse, pointer: 1);
+    await gesture.addPointer(location: tester.getCenter(find.byType(IconButton)));
+    addTearDown(gesture.removePointer);
+
+    await tester.pump();
+
+    expect(RendererBinding.instance!.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.none);
+
+    await tester.pumpWidget(
+      Material(
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Center(
+            child: IconButton(
+              onPressed: () {},
+              mouseCursor: SystemMouseCursors.none,
+              icon: const Icon(Icons.play_arrow),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(RendererBinding.instance!.mouseTracker.debugDeviceActiveCursor(1), SystemMouseCursors.none);
   });
 }
 

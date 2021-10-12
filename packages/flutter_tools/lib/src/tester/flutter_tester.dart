@@ -11,13 +11,13 @@ import 'package:process/process.dart';
 
 import '../application_package.dart';
 import '../artifacts.dart';
-import '../base/config.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/logger.dart';
 import '../base/os.dart';
 import '../build_info.dart';
 import '../bundle.dart';
+import '../bundle_builder.dart';
 import '../desktop_device.dart';
 import '../devfs.dart';
 import '../device.dart';
@@ -54,9 +54,6 @@ class FlutterTesterDevice extends Device {
     @required ProcessManager processManager,
     @required FlutterVersion flutterVersion,
     @required Logger logger,
-    // TODO(jonahwilliams): remove once g3 rolls.
-    // ignore: avoid_unused_constructor_parameters
-    String buildDirectory,
     @required FileSystem fileSystem,
     @required Artifacts artifacts,
     @required OperatingSystemUtils operatingSystemUtils,
@@ -156,7 +153,7 @@ class FlutterTesterDevice extends Device {
     }
 
     final Directory assetDirectory = _fileSystem.systemTempDirectory
-      .createTempSync('flutter-tester');
+      .createTempSync('flutter_tester.');
     final String applicationKernelFilePath = getKernelPathForTransformerOptions(
       _fileSystem.path.join(assetDirectory.path, 'flutter-tester-app.dill'),
       trackWidgetCreation: buildInfo.trackWidgetCreation,
@@ -167,9 +164,7 @@ class FlutterTesterDevice extends Device {
       buildInfo: buildInfo,
       mainPath: mainPath,
       applicationKernelFilePath: applicationKernelFilePath,
-      trackWidgetCreation: buildInfo.trackWidgetCreation,
       platform: getTargetPlatformForName(getNameForHostPlatform(_operatingSystemUtils.hostPlatform)),
-      treeShakeIcons: buildInfo.treeShakeIcons,
       assetDirPath: assetDirectory.path,
     );
 
@@ -269,9 +264,6 @@ class FlutterTesterDevices extends PollingDeviceDiscovery {
     @required ProcessManager processManager,
     @required Logger logger,
     @required FlutterVersion flutterVersion,
-    // TODO(jonahwilliams): remove after flutter rolls
-    // ignore: avoid_unused_constructor_parameters
-    Config config,
     @required OperatingSystemUtils operatingSystemUtils,
   }) : _testerDevice = FlutterTesterDevice(
         kTesterDeviceId,
@@ -300,4 +292,7 @@ class FlutterTesterDevices extends PollingDeviceDiscovery {
   Future<List<Device>> pollingGetDevices({ Duration timeout }) async {
     return showFlutterTesterDevice ? <Device>[_testerDevice] : <Device>[];
   }
+
+  @override
+  List<String> get wellKnownIds => const <String>[kTesterDeviceId];
 }
