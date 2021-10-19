@@ -518,13 +518,12 @@ class FuchsiaRemoteConnection {
   /// integers. If an empty list is returned, then no Dart VM instances could be
   /// found. An exception is thrown in the event of an actual error when
   /// attempting to acquire the ports.
+  // TODO(fxb/85956): Adapt this to return a list of ports corresponding to
+  // case when multiple flutter applications are running.
   Future<List<int>> getDeviceServicePorts() async {
-    // TODO(fxb/85956): Adapt this to return a list of ports corresponding to
-    // case when multiple flutter applications are running.
     final findRunnerComponentCommand = '/boot/bin/iquery show *_*_runner.cmx';
     final inspectData = await _sshCommandRunner.run(findRunnerComponentCommand);
-    final vm_service_port = LineSplitter()
-        .convert(inspectData.first)
+    final vm_service_port = inspectData
         .firstWhere((line) => line.contains('vm_service_port'),
             orElse: () =>
                 throw ProcessException(findRunnerComponentCommand, []))
