@@ -542,11 +542,16 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
     Duration? duration,
     EnginePhase phase = EnginePhase.sendSemanticsUpdate,
   ]) {
-    return TestAsyncUtils.guard<void>(() {
-      binding.attachRootWidget(widget);
-      binding.scheduleFrame();
-      return binding.pump(duration, phase);
-    });
+    try {
+      return TestAsyncUtils.guard<void>(() {
+        binding.attachRootWidget(widget);
+        binding.scheduleFrame();
+        return binding.pump(duration, phase);
+      });
+    } catch (e) {
+      print('Caught exception in PUMP WIDGET');
+      print(e);
+    }
   }
 
   @override
