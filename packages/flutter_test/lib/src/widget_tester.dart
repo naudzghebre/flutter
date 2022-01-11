@@ -561,8 +561,13 @@ class WidgetTester extends WidgetController
     } catch (e) {
       print('Caught exception in PUMP WIDGET');
       print(e);
-      return Future.error(e);
     }
+
+    return TestAsyncUtils.guard<void>(() {
+      binding.attachRootWidget(widget);
+      binding.scheduleFrame();
+      return binding.pump(duration, phase);
+    });
   }
 
   @override
