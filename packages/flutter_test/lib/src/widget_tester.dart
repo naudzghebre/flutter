@@ -542,6 +542,7 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
     Duration? duration,
     EnginePhase phase = EnginePhase.sendSemanticsUpdate,
   ]) {
+<<<<<<< HEAD
     try {
       return TestAsyncUtils.guard<void>(() {
         binding.attachRootWidget(widget);
@@ -553,6 +554,24 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
       print(e);
       return Future.error(e);
     }
+||||||| 2262e2b618
+    return TestAsyncUtils.guard<void>(() {
+      binding.attachRootWidget(widget);
+      binding.scheduleFrame();
+      return binding.pump(duration, phase);
+    });
+=======
+    try {
+      return TestAsyncUtils.guard<void>(() {
+        binding.attachRootWidget(widget);
+        binding.scheduleFrame();
+        return binding.pump(duration, phase);
+      });
+    } catch (e) {
+      print('Caught exception in PUMP WIDGET');
+      print(e);
+    }
+>>>>>>> 36952fd33787522255e3fa0cf91615cb74132601
   }
 
   @override
